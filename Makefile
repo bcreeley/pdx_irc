@@ -4,7 +4,7 @@
 SUBDIRS=pdx_irc_client pdx_irc_server
 
 .PHONY: default
-default: 
+default:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir; \
 	done
