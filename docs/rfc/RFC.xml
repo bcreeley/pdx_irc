@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<?xml-stylesheet type="text/xsl" href="rfc2629.xslt" ?>
+
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd" [
+  <!ENTITY RFC2119 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.2119.xml">
+  <!ENTITY RFC2616 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.2616.xml">
+  <!ENTITY I-D.ietf-core-coap SYSTEM "http://xml.resource.org/public/rfc/bibxml3/reference.I-D.ietf-core-coap.xml">
+  <!ENTITY SELF "[RFCXXXX]">
+]>
+
+<rfc ipr="trust200902" docName="IRC RFC" category="std">
+
+  <?rfc toc="yes"?>
+  <?rfc sortrefs="yes"?>
+  <?rfc symrefs="yes"?>
+
+  <front>
+    <title>Internet Relay Chat Client/Server Protocol</title>
+
+    <author initials="B." surname="Creeley" fullname="Brett Creeley">
+      <organization>Portland State University</organization>
+      <address>
+        <postal>
+          <street>1825 SW Broadway</street>
+          <city>Portland</city>
+	  <region>OR</region>
+          <code>97201</code>
+        </postal>
+        <email>bcreeley@pdx.edu</email>
+      </address>
+    </author>
+
+    <date year="2018" month="May" day="15"/>
+
+    <area></area>
+    <workgroup>IRC</workgroup>
+    <keyword>IRC Final Project</keyword>
+    <abstract>
+      <t>
+	This rfc describes an Internet Relay Chat (IRC) protocol that was created
+	for a Networking Protocols class project at Portland State University. The
+	protocol allows for clients to connect to the chat server, joining and
+	creating rooms, sending and receiving chat messages based
+	on subscribed rooms, and leaving chat rooms.
+      </t>
+      <t>
+	The server is implemented using TCP/IP sockets and assumes that the client
+	application does this as well.
+      </t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section anchor="Introduction" title="Introduction">
+      <t>
+        The purpose of this rfc is to explain how the interaction between the client
+	and server for the IRC protocol being presented.  This is done using TCP/IP
+	sockets for both the client and server.
+      </t>
+      <t>
+	For this IRC protocol there is a central server which can consist of multiple
+	chat rooms called channels. Each channel has a list of users that can communicate
+	through this channel. When one user messages the channel the server will
+	forward this message to every other user subscribed to this channel.
+      </t>
+      <t>
+	The client can also request the available channels (chat rooms) and the users
+	in a specified channel.  The server will receive this request and determine
+	whether or not it is valid and relay the information back to the client
+	who requested it.
+      </t>
+    </section>
+
+    <section anchor="Basic-Information" title="Basic Information">
+      <t>
+	Clients can connect to the server using TCP/IP sockets as long as the server
+	is available. The server is always listening for new TCP connections on
+	port 5013. As soon as the client successfully connects it can send any
+	of the protocol's available messages.
+      </t>
+      <t>
+	The client will use a predifined message structure to send all requests.
+	In all cases the server will send a response back to the client. The message
+	structure is explained in subsequent sections.
+      </t>
+      <t>
+	In some cases the server will respond to the sending client, but as noted
+	above other messages don't require a response from the server. When clients
+	disconnect from the server, the server will remove the client from any of
+	the channels they were subscribed to. It is up to the user on reconnection
+	to reconnect to these channels.
+     </t>
+     <t>
+	For simplicity each message has the same length. The first member of a message
+	is the message type. This is followed by a union that defines the available
+	messages. The message structure is described below.
+     </t>
+    </section>
+
+    <section anchor="Message-Infrastructure"  title="Message Infrastructure">
+      <section anchor="Message-Format" title="Message Format">
+       	<figure>
+          <artwork>
+		struct message {
+			uint8_t type;
+			uint32_t length;
+
+		#define RESP_INVALID			0
+		#define RESP_SUCCESS			BIT(1)
+		#define RESP_INVALID_LOGIN		BIT(2)
+		#define RESP_INVALID_CHANNEL_NAME	BIT(3)
+		#define RESP_NOT_IN_CHANNEL		BIT(4)
+		#define RESP_ALREADY_IN_CHANNEL		BIT(5)
+		#define RESP_SERVER_HAS_NO_CHANNELS	BIT(6)
+		#define RESP_CANNOT_GET_USERS		BIT(7)
+		/* Don't add any defines greater than BIT(31) */
+		#define MAX_MSG_RESP_NUM		BIT(31)
+			uint8_t resp_code;
+
+			void *payload;
+		}
+	  </artwork>
+	</figure>
+
+	<figure>
+	  <artwork>
+		/* payload for LOGIN message type */
+		struct server_login {
+			char src_user[USER_NAME_MAX_LEN];
+			char password[PW_MAX_LEN];
+		}
+	  </artwork>
+	</figure>
+
+	<figure>
+	  <artwork>
+		/* payload for JOIN message type */
+		struct channel_join {
+			char src_user[USER_NAME_MAX_LEN];
+			char channel_name[CHANNEL_NAME_MAX_LEN];
+		}
+	  </artwork>
+	</figure>
+
+	<figure>
+	  <artwork>
+		/* payload for LEAVE message type */
+		struct channel_leave {
+			char src_user[USER_NAME_MAX_LEN];
+			char channel_name[CHANNEL_NAME_MAX_LEN];
+		}
+	  </artwork>
+	</figure>
+
+	<figure>
+	  <artwork>
+		/* payload for CHAT message type */
+		struct channel_chat {
+			char src_user[USER_NAME_MAX_LEN];
+			char channel_name[CHANNEL_NAME_MAX_LEN];
+			char text[CHAT_MSG_MAX_LEN];
+		}
+	  </artwork>
+	</figure>
+
+	<figure>
+	  <artwork>
+		/* payload for LIST_CHANNELS message type */
+		struct channel_list {
+			char channels[MAX_CHANNEL_LIST_LEN];
+		}
+	  </artwork>
+        </figure>
+
+	<figure>
+	  <artwork>
+		/* payload for LIST_USERS message type */
+		struct channel_user_list {
+			char users[MAX_CHANNEL_USER_LIST_LEN];
+		};
+            </artwork>
+          </figure>
+
+        <section anchor="Message-Definitions"  title="Message Definitions">
+          <t>
+            <list style='symbols'>
+              <t>type - 8-bit value holding the message type.</t>
+	      <t>length - 32-bit value holding the length of the entire message.</t>
+	      <t>resp_code - 32-bit value holding the result of a client request.</t>
+	      <t>payload - depending on the message type this will be any of the above listed message specific structures.</t>
+              <t>src_user - the name of the user that the message originated from. </t>
+              <t>channel_name - name of the channel that this message applies to.</t>
+	      <t>result - server uses this field to send a result back to the client</t>
+              <t>text - text of a chat message.</t>
+            </list>
+          </t>
+        </section>
+        <section anchor="Request-Usage"  title="Request Usage"> <t>
+	    The message structure used was defined in preceding sections. This will
+	    be used along with the message types to build a request message. This is done by
+	    flattening all of the data into an array of bytes. The requester
+	    (most likely the client) will need to set the type, length, and in some cases
+	    the payload field for the message to be valid. Also only some of the messages
+	    require a response which is shown above.
+          </t>
+        </section>
+      </section>
+      <section anchor="Message-Types" title="Message Types">
+	  <figure>
+	    <artwork>
+		MSG_TYPE_INVALID = 0,
+		LOGIN		 = 1,
+		JOIN		 = 2,
+		LEAVE		 = 3,
+		CHAT		 = 4,
+		LIST_CHANNELS	 = 5,
+		LIST_USERS	 = 6,
+		MAX_MSG_NUM	 = 255
+	    </artwork>
+    	  </figure>
+
+	<section anchor="Message-Types-Definition" title="Message Types Definition">
+	  <t>
+	    <list style="symbols">
+	      <t>
+		MSG_TYPE_INVALID(client) - If no message type is specified then default of 0 is considered invalid.
+		This makes it so the client doesn't accidentally send a valid default message type.
+	      </t>
+	      <t>
+		MSG_TYPE_INVALID(server) - If no message type is specified then the default of 0 is considered invalid.
+		This makes it so the server can't accidentally send back a success/fail (depending on which is 0).
+	      </t>
+	      <t>
+		JOIN(client) - How the client either joins and/or creates a channel depending on whether or not it has already
+		been created. The user does this by specifying their username and the channel they wish to join/create. If the
+		user is already a member of the channel they get the response RESP_ALREADY_IN_CHANNEL. On success
+		the server will send back RESP_SUCCESS in the resp_code.
+	     </t>
+	     <t>
+		JOIN(server) - How the server sends the response back to the sending client. The server will fill the payload
+		with the same data that was sent from the client. If the user is already in the channel the server will return
+		RESP_ALREADY_IN_CHANNEL to the user. On success it will return RESP_SUCCESS.
+	     </t>
+	     <t>
+		LEAVE(client) - How the client tells the server it wants to leave the channel specified in the payload. On success
+		the client will receive a response from the server of RESP_SUCCESS. On failure the client will receive RESP_NOT_IN_CHANNEL.
+	     </t>
+	     <t>
+		LEAVE(server) - The server will send a response of RESP_SUCCESS if the client was successfully removed from the specified
+		channel.  If the client was not in the channel the server will respond with RESP_ALREADY_IN_CHANNEL. The
+		server will fill the payload with that data the client sent on the LEAVE request.
+	     </t>
+	     <t>
+		CHAT(client) - This is how the client sends messages to a specific channel they are subscribed to.
+		If the user tries to send a message to a non-existent channel or a channel they are not part of
+		then they will get a RESP_NOT_IN_CHANNEL from the server. On success the client will receive the
+		payload it send along with a response of RESP_SUCCESS.
+	     </t>
+	     <t>
+		CHAT(server) - The server uses the message to either forward the message to all users in the channel specified or
+		to send a RESP_NOT_IN_CHANNEL to the client who supplied the CHAT message. The payload will be filled
+		with the payload that was sent from the source client.
+	     </t>
+	     <t>
+		LIST_CHANNELS(client) - The client is requesting the current list of channels from the server. The client should not
+		fill the payload for this request. This request will either return RESP_SUCCESS and a list of the channel names separated
+		by a ":" or a RESP_SERVER_HAS_NO_CHANNELS in the case that no channels have been created.
+	      </t>
+	      <t>
+		LIST_CHANNELS(server) - If the server has no channels it will not fill the payload and the resp_code will be
+		RESP_SERVER_HAS_NO_CHANNELS. Otherwise the server will fill the payload with all of the channels separated by
+		a ":" and set the resp_code to RESP_SUCCESS.
+	      </t>
+	      <t>
+		LIST_USERS(client) - The client uses this message to list the users of the channel specified. If the channel does
+		not exist or if the user is not in the channel the server will respond with a resp_code of RESP_CANNOT_GET_USERS.
+		Otherwise the server fills the payload with the channel's users separated by a ":" and sets the resp_code to
+		RESP_SUCCESS.
+	      </t>
+	      <t>
+		LIST_USERS(server) - The server will determine if the channel list specified is valid and return no payload
+		and the resp_code RESP_CANNOT_GET_USERS if the request is invalid. Otherwise the server will fill the payload
+		with the channel's users separated by a ":" and set resp_code to RESP_SUCCESS.
+	      </t>
+	    </list>
+	  </t>
+	</section>
+      </section>
+
+      <section anchor="Response-Codes"  title="Response Codes">
+        <figure>
+          <artwork>
+	       #define RESP_INVALID			0
+	       #define RESP_SUCCESS			BIT(1)
+	       #define RESP_INVALID_LOGIN		BIT(2)
+	       #define RESP_INVALID_CHANNEL_NAME	BIT(3)
+	       #define RESP_NOT_IN_CHANNEL		BIT(4)
+	       #define RESP_ALREADY_IN_CHANNEL		BIT(5)
+	       #define RESP_SERVER_HAS_NO_CHANNELS	BIT(6)
+	       #define RESP_CANNOT_GET_USERS		BIT(7)
+	       uint32_t resp_code;
+          </artwork>
+        </figure>
+
+        <section anchor="Response-Codes-Definitions"  title="Response Code Definitions">
+          <t>
+            <list style='symbols'>
+              <t>
+		  RESP_INVALID - When the client or server doesn't specifically set the response
+		  this will be the default (assuming all message fields were set to 0 initially).
+              </t>
+              <t>
+		  RESP_SUCCESS - The server sets the resp_code to this when sending a successful
+		  response back to the client.
+              </t>
+              <t>
+		  RESP_INVALID_LOGIN - The server sets the resp_code to this when a client sends a
+		  LOGIN with invalid username and/or password.
+              </t>
+              <t>
+		  RESP_INVALID_CHANNEL_NAME - The server sets the resp_code to this when a client
+		  tries to send a CHAT, LIST_USERS, or LEAVE message with a non-existent channel.
+              </t>
+              <t>
+		  RESP_NOT_IN_CHANNEL - The server sets the resp_code to this when a client tries
+		  to send a CHAT, LIST_USERS, or LEAVE  message to a channel that they are not
+		  subscribed to.
+              </t>
+	      <t>
+		  RESP_ALREADY_IN_CHANNEL - The server sets the resp_code to this when a client
+		  tries to JOIN a channel they are already subscribed to.
+	      </t>
+	      <t>
+		  RESP_SERVER_HAS_NO_CHANNELS - The server sets this when there are currently
+		  no channels created if the client tries to LIST_CHANNELS.
+	      </t>
+	      <t>
+		  RESP_CANNOT_GET_USERS - The server sets this when the client tries to LIST_USERS
+		  in a channel, but is not currently part of this channel.
+	      </t>
+            </list>
+          </t>
+        </section>
+      </section>
+    </section>
+
+    <section anchor="Disconnecting-Information" title="Disconnecting ">
+      <t>
+	If a client disconnects from a server, the server will remove the user from any subscribed channels. If the
+	client wants to reconnect to all of the channels it was previously connected to it needs to keep track
+	and handle this on the client side.  The only information the server maintains about a user is their username
+	and password.
+      </t>
+    </section>
+
+    <section anchor="Security-Information" title="Security ">
+      <t>
+	This protocol is extremely insecure. The server stores usernames and passwords in plain text and none of the
+	messages are encrypted. Any of the messages could be monitored to steal this information.
+     </t>
+    </section>
+
+    <section anchor="References" title="References ">
+      <t>
+        CS494 example RFC
+      </t>
+    </section>
+
+
+    <section anchor="Copyright" title="Full Copyright Statement ">
+      <t>
+        Full Copyright Statement
+
+        Copyright (C) The Internet Society (1999).  All Rights Reserved.
+
+        This document and translations of it may be copied and furnished to
+        others, and derivative works that comment on or otherwise explain it
+        or assist in its implementation may be prepared, copied, published
+        and distributed, in whole or in part, without restriction of any
+        kind, provided that the above copyright notice and this paragraph are
+        included on all such copies and derivative works.  However, this
+        document itself may not be modified in any way, such as by removing
+        the copyright notice or references to the Internet Society or other
+        Internet organizations, except as needed for the purpose of
+        developing Internet standards in which case the procedures for
+        copyrights defined in the Internet Standards process must be
+        followed, or as required to translate it into languages other than
+        English.
+
+        The limited permissions granted above are perpetual and will not be
+        revoked by the Internet Society or its successors or assigns.
+
+        This document and the information contained herein is provided on an
+        "AS IS" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING
+        TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING
+        BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION
+        HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
+        MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+      </t>
+    </section>
+
+    <section anchor="Acknowledgments" title="Acknowledgments">
+      <t>
+        This document was prepared using xml2rfc.tools.ietf.org
+      </t>
+    </section>
+
+  </middle>
+
+  <back>
+
+  </back>
+</rfc>
