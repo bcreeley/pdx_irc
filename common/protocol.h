@@ -27,17 +27,19 @@
 
 #define BIT(i) (1 << i)
 
-#define USER_NAME_MAX_LEN 16
-#define CHANNEL_NAME_MAX_LEN 32
-#define CHAT_MSG_MAX_LEN 256
+#define USER_NAME_MAX_LEN	16
+#define PW_MAX_LEN		16
+#define CHANNEL_NAME_MAX_LEN	32
+#define CHAT_MSG_MAX_LEN	256
 
 enum message_type {
 	MSG_TYPE_INVALID = 0,
-	JOIN		 = 1,
-	LEAVE		 = 2,
-	CHAT		 = 3,
-	LIST_CHANNELS	 = 4,
-	LIST_USERS	 = 5,	/* Per channel list */
+	LOGIN		 = 1,
+	JOIN		 = 2,
+	LEAVE		 = 3,
+	CHAT		 = 4,
+	LIST_CHANNELS	 = 5,	/* channel names are separated by ":" */
+	LIST_USERS	 = 6,	/* user names are separated by ":" */
 
 	/* Do not put any new message types after MAX_MSG_NUM */
 	MAX_MSG_NUM	 = 255
@@ -46,73 +48,34 @@ enum message_type {
 /* Make sure there is no padding in message structures */
 #pragma pack(push, 1)
 
-#if 0 /* new format -- more complicated but better design probably a bad choice */
-
 struct message {
 	uint8_t type;
-	uint32_t length;
 
 #define RESP_INVALID			0
-#define RESP_SUCCESS			BIT(1)
-#define RESP_FAIL			BIT(2)
-#define RESP_USERNAME_TAKEN		BIT(3)
-#define RESP_INVALID_USERNAME		BIT(4)
-#define RESP_INVALID_CHANNEL_NAME	BIT(5)
-/* Don't add any defines greater than BIT(31) */
-#define MAX_MSG_RESP_NUM		BIT(31)
-	uint32_t resp_code;
+#define RESP_SUCCESS			BIT(0)
+#define RESP_INVALID_LOGIN		BIT(1)
+#define RESP_INVALID_CHANNEL_NAME 	BIT(2)
+#define RESP_NOT_IN_CHANNEL		BIT(3)
+#define RESP_ALREADY_IN_CHANNEL		BIT(4)
+#define RESP_SERVER_HAS_NO_CHANNELS 	BIT(5)
+#define RESP_CANNOT_GET_USERS		BIT(6)
+/* BIT(31) is the largest define with resposne being a 32-bit value */
+	uint32_t response;
+	uint32_t length;	/* Only used for LIST_USERS/LIST_CHANNELS */
 
-	void *payload;
-}
-
-struct channel_join {
-	char src_user[USER_NAME_MAX_LEN];
-	char channel_name[CHANNEL_NAME_MAX_LEN];
-}
-
-struct channel_leave {
-	char src_user[USER_NAME_MAX_LEN];
-	char channel_name[CHANNEL_NAME_MAX_LEN];
-}
-
-struct channel_chat {
-	char src_user[USER_NAME_MAX_LEN];
-	char channel_name[CHANNEL_NAME_MAX_LEN];
-	char text[CHAT_MSG_MAX_LEN];
-}
-
-struct channel_list {
-	char channels[MAX_CHANNEL_LIST_LEN];
-}
-
-struct channel_user_list {
-	char users[MAX_CHANNEL_USER_LIST_LEN];
-};
-
-
-#endif
-
-struct message {
-	uint8_t type;
 	union {
-		/* When user sends join request to server */
+		struct {
+			char username[USER_NAME_MAX_LEN];
+			char password[PW_MAX_LEN];
+		} login;
 		struct {
 			char src_user[USER_NAME_MAX_LEN];
 			char channel_name[CHANNEL_NAME_MAX_LEN];
 		} join;
 		struct {
-			uint8_t result;
-			char channel_name[CHANNEL_NAME_MAX_LEN];
-		} join_response;
-		struct {
 			char src_user[USER_NAME_MAX_LEN];
 			char channel_name[CHANNEL_NAME_MAX_LEN];
 		} leave;
-		struct {
-			uint8_t result;
-			char channel_name[CHANNEL_NAME_MAX_LEN];
-		} leave_response;
-		/* Client sends message to channel on server */
 		struct {
 			char src_user[USER_NAME_MAX_LEN];
 			char channel_name[CHANNEL_NAME_MAX_LEN];
