@@ -101,97 +101,83 @@
       <section anchor="Message-Format" title="Message Format">
        	<figure>
           <artwork>
-		struct message {
-			uint8_t type;
-			uint32_t length;
+		Message Type   - 1 byte
+		Message Length - 4 bytes
 
-		#define RESP_INVALID			0
-		#define RESP_SUCCESS			BIT(1)
-		#define RESP_INVALID_LOGIN		BIT(2)
-		#define RESP_INVALID_CHANNEL_NAME	BIT(3)
-		#define RESP_NOT_IN_CHANNEL		BIT(4)
-		#define RESP_ALREADY_IN_CHANNEL		BIT(5)
-		#define RESP_SERVER_HAS_NO_CHANNELS	BIT(6)
-		#define RESP_CANNOT_GET_USERS		BIT(7)
+		/* One-Hot Response Codes */
+		RESP_INVALID			0
+		RESP_SUCCESS			BIT(0)
+		RESP_INVALID_LOGIN		BIT(1)
+		RESP_INVALID_CHANNEL_NAME	BIT(2)
+		RESP_NOT_IN_CHANNEL		BIT(3)
+		RESP_ALREADY_IN_CHANNEL		BIT(4)
+		RESP_SERVER_HAS_NO_CHANNELS	BIT(5)
+		RESP_CANNOT_GET_USERS		BIT(6)
 		/* Don't add any defines greater than BIT(31) */
-		#define MAX_MSG_RESP_NUM		BIT(31)
-			uint8_t resp_code;
+		MAX_MSG_RESP_NUM		BIT(31)
 
-			void *payload;
-		}
+		Message Response - 4 bytes
+		Message Payload  - Size dependent on payload
 	  </artwork>
 	</figure>
 
 	<figure>
 	  <artwork>
 		/* payload for LOGIN message type */
-		struct server_login {
-			char src_user[USER_NAME_MAX_LEN];
-			char password[PW_MAX_LEN];
-		}
+		Source User - 16 bytes
+		Password    - 16 bytes
 	  </artwork>
 	</figure>
 
 	<figure>
 	  <artwork>
 		/* payload for JOIN message type */
-		struct channel_join {
-			char src_user[USER_NAME_MAX_LEN];
-			char channel_name[CHANNEL_NAME_MAX_LEN];
-		}
+		Source User  - 16 bytes
+		Channel Name - 16 bytes
 	  </artwork>
 	</figure>
 
 	<figure>
 	  <artwork>
 		/* payload for LEAVE message type */
-		struct channel_leave {
-			char src_user[USER_NAME_MAX_LEN];
-			char channel_name[CHANNEL_NAME_MAX_LEN];
-		}
+		Source User  - 16 bytes
+		Channel Name - 16 bytes
 	  </artwork>
 	</figure>
 
 	<figure>
 	  <artwork>
 		/* payload for CHAT message type */
-		struct channel_chat {
-			char src_user[USER_NAME_MAX_LEN];
-			char channel_name[CHANNEL_NAME_MAX_LEN];
-			char text[CHAT_MSG_MAX_LEN];
-		}
+		Source User  - 16 bytes
+		Channel Name - 16 bytes
+		Chat Text    - 256 bytes
 	  </artwork>
 	</figure>
 
 	<figure>
 	  <artwork>
 		/* payload for LIST_CHANNELS message type */
-		struct channel_list {
-			char channels[MAX_CHANNEL_LIST_LEN];
-		}
+		Flat array of channel names delimited by a ":"
 	  </artwork>
         </figure>
 
 	<figure>
 	  <artwork>
 		/* payload for LIST_USERS message type */
-		struct channel_user_list {
-			char users[MAX_CHANNEL_USER_LIST_LEN];
-		};
+		Flat array of usernames delimited by a ":"
             </artwork>
           </figure>
 
         <section anchor="Message-Definitions"  title="Message Definitions">
           <t>
             <list style='symbols'>
-              <t>type - 8-bit value holding the message type.</t>
-	      <t>length - 32-bit value holding the length of the entire message.</t>
-	      <t>resp_code - 32-bit value holding the result of a client request.</t>
-	      <t>payload - depending on the message type this will be any of the above listed message specific structures.</t>
-              <t>src_user - the name of the user that the message originated from. </t>
-              <t>channel_name - name of the channel that this message applies to.</t>
-	      <t>result - server uses this field to send a result back to the client</t>
-              <t>text - text of a chat message.</t>
+              <t>Message Type   - 8-bit value holding the message type.</t>
+	      <t>Message Length - 32-bit value holding the length of the entire message.</t>
+	      <t>Response Code  - 32-bit value holding the result of a client request.</t>
+	      <t>Payload        - Size dependent on the payload shown above.</t>
+              <t>Source User    - 16-byte username of the client that the message originated from. </t>
+              <t>Channel Name   - 16-byte channel name that this message applies to.</t>
+              <t>Chat Text      - 256-byte text of a chat message.</t>
             </list>
           </t>
         </section>
@@ -200,8 +186,8 @@
 	    be used along with the message types to build a request message. This is done by
 	    flattening all of the data into an array of bytes. The requester
 	    (most likely the client) will need to set the type, length, and in some cases
-	    the payload field for the message to be valid. Also only some of the messages
-	    require a response which is shown above.
+	    the payload field for the message to be valid. All of the messages require
+	    a response from the server.
           </t>
         </section>
       </section>
@@ -290,15 +276,16 @@
       <section anchor="Response-Codes"  title="Response Codes">
         <figure>
           <artwork>
-	       #define RESP_INVALID			0
-	       #define RESP_SUCCESS			BIT(1)
-	       #define RESP_INVALID_LOGIN		BIT(2)
-	       #define RESP_INVALID_CHANNEL_NAME	BIT(3)
-	       #define RESP_NOT_IN_CHANNEL		BIT(4)
-	       #define RESP_ALREADY_IN_CHANNEL		BIT(5)
-	       #define RESP_SERVER_HAS_NO_CHANNELS	BIT(6)
-	       #define RESP_CANNOT_GET_USERS		BIT(7)
-	       uint32_t resp_code;
+	       RESP_INVALID			0
+	       RESP_SUCCESS			BIT(0)
+	       RESP_INVALID_LOGIN		BIT(1)
+	       RESP_INVALID_CHANNEL_NAME	BIT(2)
+	       RESP_NOT_IN_CHANNEL		BIT(3)
+	       RESP_ALREADY_IN_CHANNEL		BIT(4)
+	       RESP_SERVER_HAS_NO_CHANNELS	BIT(5)
+	       RESP_CANNOT_GET_USERS		BIT(6)
+
+	       Response Code - 4 bytes
           </artwork>
         </figure>
 
