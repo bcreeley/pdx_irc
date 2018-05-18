@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
 			exit(EXIT_SUCCESS);
 		}
 
-		for (i = 0; i < nfds; ++i) {
+		for_each_epoll_event(i, nfds) {
 			uint32_t event_mask = events[i].events;
 			int eventfd = events[i].data.fd;
 
