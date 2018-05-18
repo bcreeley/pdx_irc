@@ -1,16 +1,21 @@
 # Makefile for pdx irc client
 # Author: Brett Creeley
 
-default: client
-.PHONY: default
+CFLAGS+=-g
 
-client: client.o
-	gcc -g -o client client.o
+COMMON_DIR = ../common
+LIST_DIR = $(COMMON_DIR)/list
+EPOLL_DIR = $(COMMON_DIR)/epoll
 
-client.o: client.c
-	gcc -D_GNU_SOURCE -g -c client.c
+SRC = client.c $(EPOLL_DIR)/epoll_helpers.c $(LIST_DIR)/list.c
+OBJS = client.o epoll_helpers.o list.o
 
-.PHONY: clean
+.PHONY: client
+client: $(OBJS)
+	$(CC) $(CFLAGS) -o client $(OBJS)
+
+$(OBJS): $(SRC)
+	$(CC) -D_GNU_SOURCE $(CFLAGS) -c $(SRC)
+
 clean:
 	rm -f client *.o
-

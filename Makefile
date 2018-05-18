@@ -2,6 +2,7 @@
 # Author: Brett Creeley
 
 SUBDIRS=pdx_irc_client pdx_irc_server
+INCLUDES=-I common/ common/epoll/ common/list
 
 .PHONY: default
 default:

@@ -2,19 +2,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static int add_list_node(struct list_node *head, struct list_node *new)
+int add_list_node(struct list_node *head, struct list_node *add)
 {
-	if (!head || !new)
+	if (!head || !add)
 		return -1;
 
-	new->next = head->next;
-	head->next = new;
+	add->next = head->next;
+	head->next = add;
 
 	return 0;
 }
 
 //TODO: Note caller has to deallocate struct list_node *rm after calling this function
-static int rm_list_node(struct list_node *prev, struct list_node *rm)
+int rm_list_node(struct list_node *prev, struct list_node *rm)
 {
 	if (!prev || !rm)
 		return -1;
@@ -24,6 +24,7 @@ static int rm_list_node(struct list_node *prev, struct list_node *rm)
 	return 0;
 }
 
+#if 0
 int main(int argc, char *argv[])
 {
 	struct list_node *head = NULL;
@@ -53,5 +54,4 @@ int main(int argc, char *argv[])
 	free(head);
 	return 0;
 }
-
-
+#endif

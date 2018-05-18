@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
+#include "../common/epoll/epoll_helpers.h"
 
 #define MAX_EPOLL_EVENTS	10
 #define MAX_CMDLINE_INPUT	1024
@@ -49,20 +50,6 @@ int connect_to_server(int *sockfd)
 	return 0;
 }
 
-static int add_epoll_fd(int epollfd, int addfd, uint32_t events)
-{
-	struct epoll_event epoll_ev;
-
-	epoll_ev.events = events;
-	epoll_ev.data.fd = addfd;
-	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, addfd, &epoll_ev) == -1) {
-		perror("epoll_ctl: addfd");
-		return -1;
-	}
-
-	return 0;
-}
-
 static int rm_epoll_fd(int epollfd, int rmfd)
 {
 	if (epoll_ctl(epollfd, EPOLL_CTL_DEL, rmfd, NULL) == -1) {
@@ -86,8 +73,8 @@ static int setup_epoll_fd(int *epollfd, int serverfd /* this 2nd argument doesn'
 		return -1;
 	}
 
-	if (add_epoll_fd(*epollfd, serverfd, EPOLLIN | EPOLLRDHUP)) {
-		printf("add_epoll_fd failed!\n");
+	if (add_epoll_member(*epollfd, serverfd, EPOLLIN | EPOLLRDHUP)) {
+		printf("add_epoll_member failed!\n");
 		close(*epollfd);
 		return -1;
 	}
@@ -120,7 +107,7 @@ int main(int argc, char *argv[])
 	if (setup_epoll_fd(&epollfd, sockfd))
 		goto exit_fail_close_sockfd;
 
-	if (add_epoll_fd(epollfd, STDIN_FILENO, EPOLLIN))
+	if (add_epoll_member(epollfd, STDIN_FILENO, EPOLLIN))
 		goto exit_fail_close_epollfd;
 
 	while (1) {

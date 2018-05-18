@@ -1,13 +1,16 @@
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include "epoll_helpers.h"
 
 int add_epoll_member(int epollfd, int memberfd, uint32_t subscribe_events)
 {
 	struct epoll_event epoll_ev;
 
-	epoll_ev.events = events;
+	epoll_ev.events = subscribe_events;
 	epoll_ev.data.fd = memberfd;
 	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, memberfd, &epoll_ev) == -1) {
 		perror("epoll_ctl: addfd");
@@ -43,7 +46,7 @@ int create_epoll_manager(int *epollfd)
 	return 0;
 }
 
-int accept_new_member(int epollfd, int listenfd)
+int accept_new_epoll_member(int epollfd, int listenfd)
 {
 	int clientfd;
 
@@ -53,7 +56,7 @@ int accept_new_member(int epollfd, int listenfd)
 		return -1;
 	}
 
-	if (add_epoll_fd(epollfd, clientfd, EPOLL_NEW_CLIENT))
+	if (add_epoll_member(epollfd, clientfd, SOCKET_EPOLL_NEW_MEMBER))
 		return -1;
 
 	return 0;
