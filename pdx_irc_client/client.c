@@ -50,39 +50,6 @@ int connect_to_server(int *sockfd)
 	return 0;
 }
 
-static int rm_epoll_fd(int epollfd, int rmfd)
-{
-	if (epoll_ctl(epollfd, EPOLL_CTL_DEL, rmfd, NULL) == -1) {
-		perror("epoll_ctl: rmfd");
-		return -1;
-	}
-	close(rmfd);
-
-	return 0;
-}
-
-
-static int setup_epoll_fd(int *epollfd, int serverfd /* this 2nd argument doesn't belong here */)
-{
-	if (!epollfd)
-		return -1;
-
-	*epollfd = epoll_create1(0);
-	if (*epollfd < 0) {
-		perror("epoll_create1");
-		return -1;
-	}
-
-	if (add_epoll_member(*epollfd, serverfd, EPOLLIN | EPOLLRDHUP)) {
-		printf("add_epoll_member failed!\n");
-		close(*epollfd);
-		return -1;
-	}
-
-	return 0;
-}
-
-
 int main(int argc, char *argv[])
 {
 	struct message *send_msg, *recv_msg;
@@ -104,9 +71,14 @@ int main(int argc, char *argv[])
 	if (connect_to_server(&sockfd))
 		goto exit_free_msg_mem;
 
-	if (setup_epoll_fd(&epollfd, sockfd))
+	if (create_epoll_manager(&epollfd))
 		goto exit_fail_close_sockfd;
 
+	/* Listen for messages from the server */
+	if (add_epoll_member(epollfd, sockfd, SOCKET_EPOLL_NEW_MEMBER))
+		goto exit_fail_close_epollfd;
+
+	/* Listen for user input */
 	if (add_epoll_member(epollfd, STDIN_FILENO, EPOLLIN))
 		goto exit_fail_close_epollfd;
 
