@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
+#include "../common/epoll/epoll_helpers.h"
 
 #define MAX_EPOLL_EVENTS 10
 
@@ -56,69 +57,6 @@ int setup_server_socket(int *serverfd)
 err_closefd:
 	close(*serverfd);
 	return -1;
-}
-
-static int add_epoll_fd(int epollfd, int addfd, uint32_t events)
-{
-	struct epoll_event epoll_ev;
-
-	epoll_ev.events = events;
-	epoll_ev.data.fd = addfd;
-	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, addfd, &epoll_ev) == -1) {
-		perror("epoll_ctl: addfd");
-		return -1;
-	}
-
-	return 0;
-}
-
-static int rm_epoll_fd(int epollfd, int rmfd)
-{
-	if (epoll_ctl(epollfd, EPOLL_CTL_DEL, rmfd, NULL) == -1) {
-		perror("epoll_ctl: rmfd");
-		return -1;
-	}
-	close(rmfd);
-
-	return 0;
-}
-
-
-static int setup_epoll_fd(int *epollfd, int serverfd)
-{
-	if (!epollfd)
-		return -1;
-
-	*epollfd = epoll_create1(0);
-	if (*epollfd < 0) {
-		perror("epoll_create1");
-		return -1;
-	}
-
-	if (add_epoll_fd(*epollfd, serverfd, EPOLLIN)) {
-		printf("add_epoll_fd failed!\n");
-		close(*epollfd);
-		return -1;
-	}
-
-	return 0;
-}
-
-static int accept_new_client(int epollfd, int serverfd)
-{
-#define EPOLL_NEW_CLIENT (EPOLLIN | EPOLLRDHUP)
-	int clientfd;
-
-	clientfd = accept(serverfd, (struct sockaddr *)NULL, NULL);
-	if (clientfd == -1) {
-		perror("accept");
-		return -1;
-	}
-
-	if (add_epoll_fd(epollfd, clientfd, EPOLL_NEW_CLIENT))
-		return -1;
-
-	return 0;
 }
 
 static void handle_recv_msg(int epollfd, int srcfd)
@@ -198,7 +136,10 @@ int main(int argc, char *argv[])
 	if (setup_server_socket(&serverfd) < 0)
 		exit(EXIT_FAILURE);
 
-	if (setup_epoll_fd(&epollfd, serverfd))
+	if (create_epoll_manager(&epollfd))
+		exit(EXIT_FAILURE);
+
+	if (add_epoll_member(epollfd, serverfd, EPOLLIN))
 		exit(EXIT_FAILURE);
 
 	printf("serverfd %d\n", serverfd);
@@ -232,7 +173,7 @@ int main(int argc, char *argv[])
 			case EPOLLIN:
 				/* Only a new client if this is the serverfd */
 				if (eventfd == serverfd) {
-					if (accept_new_client(epollfd, eventfd)) {
+					if (accept_new_epoll_member(epollfd, eventfd)) {
 						printf("accept_new_client() failed!\n");
 						exit(EXIT_FAILURE);
 					}
@@ -246,7 +187,7 @@ int main(int argc, char *argv[])
 				break;
 
 			case EPOLL_CLIENT_DISCONNECT:
-				if (rm_epoll_fd(epollfd, eventfd))
+				if (rm_epoll_member(epollfd, eventfd))
 					exit(EXIT_FAILURE);
 				printf("removing client fd %d\n",
 				       eventfd);
