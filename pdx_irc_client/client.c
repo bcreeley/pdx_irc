@@ -98,16 +98,7 @@ int main(int argc, char *argv[])
 			uint32_t event_mask = events[i].events;
 			int eventfd = events[i].data.fd;
 
-			printf("fd=%d; events:%s%s%s%s%s%s%s\n",
-			       eventfd,
-			       (event_mask & EPOLLIN)      ? " EPOLLIN"      : "",
-			       (event_mask & EPOLLPRI)     ? " EPOLLPRI"     : "",
-			       (event_mask & EPOLLRDHUP)   ? " EPOLLRDHUP"   : "",
-			       (event_mask & EPOLLOUT)     ? " EPOLLOUT"     : "",
-			       (event_mask & EPOLLET)      ? " EPOLLET"      : "",
-			       (event_mask & EPOLLONESHOT) ? " EPOLLONESHOT" : "",
-			       (event_mask & EPOLLERR)     ? " EPOLLERR"     : "",
-			       (event_mask & EPOLLHUP)     ? " EPOLLHUP"     : "");
+			debug_print_epoll_event(eventfd, event_mask);
 
 			switch (event_mask) {
 			case EPOLLIN:
