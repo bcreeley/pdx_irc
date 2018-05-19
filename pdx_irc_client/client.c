@@ -50,26 +50,71 @@ int connect_to_server(int *sockfd)
 	return 0;
 }
 
-int main(int argc, char *argv[])
+static struct message *parse_user_input()
 {
-	struct message *send_msg, *recv_msg;
-	int sockfd, epollfd;
-	char *input = NULL;
+	struct message *send_msg;
+	char *input;
+	int bytes;
 
-	recv_msg = (struct message *)malloc(sizeof(*recv_msg));
-	if (!recv_msg) {
+	input = (char *)calloc(1, MAX_CMDLINE_INPUT);
+	if (!input) {
 		perror("calloc");
-		exit(EXIT_FAILURE);
+		return NULL;
 	}
-	send_msg = (struct message *)malloc(sizeof(*send_msg));
+
+	bytes = read(STDIN_FILENO, input, MAX_CMDLINE_INPUT);
+	if (bytes < 0) {
+		perror("read from stdin");
+		free(input);
+		return NULL;
+	}
+
+	send_msg = (struct message *)calloc(1, sizeof(*send_msg));
 	if (!send_msg) {
 		perror("calloc");
-		exit(EXIT_FAILURE);
+		free(input);
+		return NULL;
 	}
+
+	if (strcasestr(input, ":JOIN") != NULL) {
+		send_msg->type = JOIN;
+		strncpy(send_msg->join.src_user,
+			"Bquigs",
+			sizeof("Bquigs"));
+		strncpy(send_msg->join.channel_name,
+			"LinuxFTW!",
+			sizeof("LinuxFTW!"));
+	} else if (strcasestr(input, ":CHAT") != NULL) {
+		send_msg->type = CHAT;
+		strncpy(send_msg->chat.src_user,
+			"Bquigs",
+			sizeof("Bquigs"));
+		strncpy(send_msg->chat.channel_name,
+			"LinuxFTW!",
+			sizeof("LinuxFTW!"));
+		strncpy(send_msg->chat.text,
+			"Hello Server!",
+			sizeof("Hello Server!"));
+	} else {
+		printf("Help:\n");
+		printf("\t:JOIN  <channel_name>\n");
+		printf("\t:LEAVE <channel_name>\n");
+		printf("\t:CHAT  <channel_name> <chat message>\n");
+		return NULL;
+	}
+
+	free(input);
+
+	return send_msg;
+}
+
+int main(int argc, char *argv[])
+{
+	int sockfd, epollfd;
 
 	/* No reason to continue if we can't connect to the server */
 	if (connect_to_server(&sockfd))
-		goto exit_free_msg_mem;
+		exit(EXIT_FAILURE);
 
 	if (create_epoll_manager(&epollfd))
 		goto exit_fail_close_sockfd;
@@ -103,46 +148,12 @@ int main(int argc, char *argv[])
 			switch (event_mask) {
 			case EPOLLIN:
 				if (eventfd == STDIN_FILENO) {
-					input = (char *)calloc(1, MAX_CMDLINE_INPUT);
-					if (!input) {
-						perror("calloc");
-						goto exit_fail_close_epollfd;
-					}
+					struct message *send_msg;
+					int bytes;
 
-					bytes = read(STDIN_FILENO, input, MAX_CMDLINE_INPUT);
-					if (bytes < 0) {
-						perror("read from stdin");
-						goto exit_fail_read_stdin;
-					}
-
-					if (strcasestr(input, ":JOIN") != NULL) {
-						send_msg->type = JOIN;
-						strncpy(send_msg->join.src_user,
-							"Bquigs",
-							sizeof("Bquigs"));
-						strncpy(send_msg->join.channel_name,
-							"LinuxFTW!",
-							sizeof("LinuxFTW!"));
-					} else if (strcasestr(input, ":CHAT") != NULL) {
-						send_msg->type = CHAT;
-						strncpy(send_msg->chat.src_user,
-							"Bquigs",
-							sizeof("Bquigs"));
-						strncpy(send_msg->chat.channel_name,
-							"LinuxFTW!",
-							sizeof("LinuxFTW!"));
-						strncpy(send_msg->chat.text,
-							"Hello Server!",
-							sizeof("Hello Server!"));
-					} else {
-						printf("Help:\n");
-						printf("\t:JOIN  <channel_name>\n");
-						printf("\t:LEAVE <channel_name>\n");
-						printf("\t:CHAT  <channel_name> <chat message>\n");
+					send_msg = parse_user_input();
+					if (!send_msg)
 						continue;
-					}
-
-					free(input);
 
 					bytes = send(sockfd, send_msg, MSG_SIZE, 0);
 					if (bytes != MSG_SIZE) {
@@ -150,18 +161,51 @@ int main(int argc, char *argv[])
 						/* TODO: Decide if we should just print the error message and
 						 * 		 continue to go on about our business
 						 */
-						goto exit_free_msg_mem;
+						free(send_msg);
+						goto exit_fail_close_epollfd;
 					}
+					free(send_msg);
+
+				} else if (eventfd == sockfd) { /* Received CHAT */
+					struct message *recv_msg;
+
+					recv_msg = (struct message *)calloc(1, sizeof(*recv_msg));
+					if (!recv_msg) {
+						perror("calloc");
+						goto exit_fail_close_epollfd;
+					}
+
+					bytes = recv(sockfd, recv_msg, MSG_SIZE, MSG_WAITALL);
+					if (bytes < 0) {
+						perror("recv");
+						goto exit_fail_close_epollfd;
+					}
+
+					printf("(%s) %s: %s\n", recv_msg->chat.channel_name,
+					       recv_msg->chat.src_user, recv_msg->chat.text);
+
 				}
+
 				break;
 
 			/* FIXME: Have client try to reconnect on server
 			 * disconnect a few times atleast.
 			 */
 			case (EPOLLIN | EPOLLRDHUP):
-				if (eventfd == sockfd)
-					if (recv(sockfd, recv_msg, MSG_SIZE, MSG_WAITALL) == 0)
+				if (eventfd == sockfd) {
+					struct message *recv_msg = (struct message *)
+						calloc(1, sizeof(*recv_msg));
+					if (!recv_msg) {
+						perror("calloc");
+						goto exit_fail_close_epollfd;
+					}
+
+					if (recv(sockfd, recv_msg, MSG_SIZE, MSG_WAITALL) == 0) {
+						free(recv_msg);
 						goto exit_success;
+					}
+				}
+
 				break;
 
 			default:
@@ -173,24 +217,16 @@ int main(int argc, char *argv[])
 	}
 
 exit_success:
-	free(send_msg);
-	free(recv_msg);
 	close(sockfd);
 	close(epollfd);
 
 	return EXIT_SUCCESS;
-
-exit_fail_read_stdin:
-	free(input);
 
 exit_fail_close_epollfd:
 	close(epollfd);
 
 exit_fail_close_sockfd:
 	close(sockfd);
-
-exit_free_msg_mem:
-	free(send_msg);
 
 	return EXIT_FAILURE;
 }
