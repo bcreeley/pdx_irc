@@ -29,8 +29,6 @@ int add_list_node(struct list_node **head, struct list_node *add)
 	return 0;
 }
 
-//TODO: Note caller has to deallocate struct list_node *rm after calling this function
-
 /**
  * rm_list_node - removes a list_node from the list and returns it
  *
@@ -95,6 +93,7 @@ bool list_contains(struct list_node *head, void *data,
 	return false;
 }
 
+#if 0
 int main(int argc, char *argv[])
 {
 	struct list_node *head = NULL;
@@ -159,4 +158,4 @@ int main(int argc, char *argv[])
 #endif
 	return 0;
 }
-
+#endif
