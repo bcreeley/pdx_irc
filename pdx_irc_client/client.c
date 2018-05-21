@@ -76,15 +76,23 @@ static struct message *parse_user_input()
 		return NULL;
 	}
 
-	if (strcasestr(input, ":JOIN") != NULL) {
+	if (strcasestr(input, ":JOINB") != NULL) {
 		send_msg->type = JOIN;
 		strncpy(send_msg->join.src_user,
 			"Bquigs",
 			sizeof("Bquigs"));
 		strncpy(send_msg->join.channel_name,
 			"LinuxFTW!",
+			sizeof("LinxuFTW!"));
+	} else if (strcasestr(input, ":JOINA") != NULL) {
+		send_msg->type = JOIN;
+		strncpy(send_msg->join.src_user,
+			"Ann",
+			sizeof("Ann"));
+		strncpy(send_msg->join.channel_name,
+			"LinuxFTW!",
 			sizeof("LinuxFTW!"));
-	} else if (strcasestr(input, ":CHAT") != NULL) {
+	} else if (strcasestr(input, ":CHATB") != NULL) {
 		send_msg->type = CHAT;
 		strncpy(send_msg->chat.src_user,
 			"Bquigs",
@@ -93,8 +101,19 @@ static struct message *parse_user_input()
 			"LinuxFTW!",
 			sizeof("LinuxFTW!"));
 		strncpy(send_msg->chat.text,
-			"Hello Server!",
-			sizeof("Hello Server!"));
+			"Hello Ann!",
+			sizeof("Hello Ann!"));
+	} else if (strcasestr(input, ":CHATA") != NULL) {
+		send_msg->type = CHAT;
+		strncpy(send_msg->chat.src_user,
+			"Ann",
+			sizeof("Ann"));
+		strncpy(send_msg->chat.channel_name,
+			"LinuxFTW!",
+			sizeof("LinuxFTW!"));
+		strncpy(send_msg->chat.text,
+			"Hello Bquigs!",
+			sizeof("Hello Bquigs!"));
 	} else {
 		printf("Help:\n");
 		printf("\t:JOIN  <channel_name>\n");
@@ -181,8 +200,8 @@ int main(int argc, char *argv[])
 						goto exit_fail_close_epollfd;
 					}
 
-					printf("(%s) %s: %s\n", recv_msg->chat.channel_name,
-					       recv_msg->chat.src_user, recv_msg->chat.text);
+					printf("recv_msg type %d response %d\n",  recv_msg->type,
+					       recv_msg->response /*recv_msg->chat.text*/);
 
 				}
 

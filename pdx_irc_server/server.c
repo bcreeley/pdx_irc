@@ -14,8 +14,21 @@
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include "../common/epoll/epoll_helpers.h"
+#include "../common/list/list.h"
 
 #define MAX_EPOLL_EVENTS 10
+
+/* Server wide channel list */
+static struct list_node *channel_list_head = NULL;
+
+static struct channel *get_channel(char *channel_name)
+{
+	struct channel c;
+
+	strncpy(c.name, channel_name, CHANNEL_NAME_MAX_LEN);
+
+	return get_list_node_data(channel_list_head, &c, is_equal_channels);
+}
 
 int setup_server_socket(int *serverfd)
 {
@@ -59,11 +72,140 @@ err_closefd:
 	return -1;
 }
 
+static bool is_user_in_channel(struct channel *c, struct user *u)
+{
+	struct list_node *tmp;
+
+	if (!c || !u)
+		return false;
+
+	return list_contains(c->user_list_head, u, is_equal_users);
+}
+
+static uint32_t handle_join_msg(int srcfd, struct message *msg)
+{
+	struct list_node *add_node;
+	struct channel *channel;
+	struct user *user;
+
+	printf("Received JOIN request for channel %s from %s\n",
+	       msg->join.channel_name, msg->join.src_user);
+
+	channel = get_channel(msg->join.channel_name);
+	if (!channel) {
+		struct list_node *add_node;
+		struct channel *c;
+
+		c = calloc(1, sizeof(*c));
+		if (!c) {
+			perror("calloc");
+			return RESP_MEMORY_ALLOC;
+		}
+
+		add_node = calloc(1, sizeof(*add_node));
+		if (!add_node) {
+			perror("malloc");
+			free(c);
+			return RESP_MEMORY_ALLOC;
+		}
+
+		strncpy(c->name, msg->join.channel_name,
+			CHANNEL_NAME_MAX_LEN);
+		add_node->data = c;
+		if (add_list_node(&channel_list_head, add_node)) {
+			//TODO: Send error message back to client
+			printf("Failed to add channel node\n");
+			free(c);
+			free(add_node);
+			return RESP_CANNOT_ADD_CHANNEL;
+		}
+	}
+
+	//TODO: Don't let same user join same channel again
+	user = calloc(1, sizeof(*user));
+	if (!user) {
+		perror("calloc");
+		return RESP_MEMORY_ALLOC;
+	}
+
+	strncpy(user->name, msg->join.src_user, USER_NAME_MAX_LEN);
+	user->fd = srcfd;
+	if (is_user_in_channel(channel, user)) {
+		printf("User %s already in channel %s\n", user->name,
+		       channel->name);
+		free(user);
+		return RESP_ALREADY_IN_CHANNEL;
+	}
+
+	add_node = calloc(1, sizeof(*add_node));
+	if (!add_node) {
+		perror("calloc");
+		free(user);
+		return RESP_MEMORY_ALLOC;
+	}
+
+	add_node->data = user;
+
+	channel = get_channel(msg->join.channel_name);
+	if (!channel) {
+		free(user);
+		free(add_node);
+		return RESP_INVALID_CHANNEL_NAME;
+	}
+
+	if (add_list_node(&channel->user_list_head, add_node)) {
+		printf("Failed to add user node\n");
+		free(user);
+		free(add_node);
+		return RESP_ADD_USER_TO_CHANNEL;
+	} else {
+		printf("successfully added user %s with fd %d to channel %s\n",
+		      user->name, user->fd, msg->join.channel_name);
+	}
+
+	return RESP_SUCCESS;
+}
+
+static uint32_t handle_chat_msg(int srcfd, struct message *msg)
+{
+	struct channel *channel;
+	struct list_node *tmp;
+	struct user user;
+	int bytes;
+
+	/* Print where message came from for testing */
+	printf("(%s) %s: %s\n", msg->chat.channel_name, msg->chat.src_user,
+	       msg->chat.text);
+
+	/* Setup src_user data to avoid echoing message back to sender */
+	strncpy(user.name, msg->chat.src_user, sizeof(msg->chat.src_user));
+	user.fd = srcfd;
+	/* Make sure this message is directed towards a real channel */
+	channel = get_channel(msg->chat.channel_name);
+	if (!channel)
+		return RESP_INVALID_CHANNEL_NAME;
+
+	if (!is_user_in_channel(channel, &user))
+		return RESP_NOT_IN_CHANNEL;
+
+	for (tmp = channel->user_list_head; tmp != NULL; tmp = tmp->next) {
+		/* Don't echo the chat message back to the sender */
+		if (is_equal_users(&user, tmp->data))
+			continue;
+
+		bytes = send(((struct user *)(tmp->data))->fd, msg, MSG_SIZE, 0);
+		if (bytes != MSG_SIZE) {
+			perror("send");
+		}
+	}
+
+	return RESP_SUCCESS;
+}
+
 static void handle_recv_msg(int epollfd, int srcfd)
 {
-	struct message *recv_msg;
+	struct message *recv_msg, *send_msg;
 	int bytes;
-	int i;
 
 	recv_msg = (struct message *)calloc(1, sizeof(*recv_msg));
 	if (!recv_msg) {
@@ -71,60 +213,72 @@ static void handle_recv_msg(int epollfd, int srcfd)
 		return;
 	}
 
+	send_msg = (struct message *)calloc(1, sizeof(*send_msg));
+	if (!send_msg) {
+		perror("calloc");
+		free(recv_msg);
+		return;
+	}
+
 	bytes = recv(srcfd, recv_msg, MSG_SIZE, MSG_WAITALL);
-	/* This means the client disconnected from us */
-	if (!bytes) {
-		printf("read 0 bytes!\n");
-		goto free_recv_msg;
-	} else if (bytes != MSG_SIZE) {
+	if (bytes != MSG_SIZE) {
+		send_msg->type = ERROR;
+		send_msg->response = RESP_RECV_MSG_FAILED;
 		printf("%s:%d ERROR!\n", __func__, __LINE__);
+		goto send_response;
 	}
 
 	switch (recv_msg->type) {
 		case JOIN:
-			printf("Received JOIN request for channel %s from %s\n",
-			       recv_msg->join.channel_name,
-			       recv_msg->join.src_user);
-			//send_msg.type = JOIN;
-			//send_msg.join_response.result = SUCCESS;
+			/* Prepare JOIN response to src_user */
+			send_msg->response = handle_join_msg(srcfd, recv_msg);
+			strncpy(send_msg->join.src_user, recv_msg->join.src_user,
+				USER_NAME_MAX_LEN);
+			strncpy(send_msg->join.channel_name,
+				recv_msg->join.channel_name, CHANNEL_NAME_MAX_LEN);
 			break;
+
 		case LEAVE:
 			printf("User: %s wants to leave channel: %s\n",
 			       recv_msg->leave.src_user,
 			       recv_msg->leave.channel_name);
 			/* TODO: Remove user from specific channel's user list */
+
+			//TODO: implement handle_leave_msg
+			//send_msg->response = handle_leave_msg(srcfd, recv_msg);
+			send_msg->response = RESP_SUCCESS;
+			strncpy(send_msg->join.src_user, recv_msg->join.src_user,
+				USER_NAME_MAX_LEN);
+			strncpy(send_msg->join.channel_name,
+				recv_msg->join.channel_name, CHANNEL_NAME_MAX_LEN);
+
 			break;
+
 		case CHAT:
-			/* Print where message came from for testing */
-			printf("(%s) %s: %s\n", recv_msg->chat.channel_name,
-			       recv_msg->chat.src_user, recv_msg->chat.text);
-#if 0
-			bytes = send(6, recv_msg, MSG_SIZE, 0);
-			if (bytes != MSG_SIZE) {
-				perror("send");
-			}
-#endif
-			/* Get ready to relay message to all users */
-			//	send_msg.type = CHAT;
-			//	strncpy(send_msg.chat.text, recv_msg->chat.text,
-			//			CHAT_MSG_MAX_LEN);
-			//	strncpy(send_msg.chat.src_user, recv_msg->chat.channel_name,
-			//			CHANNEL_NAME_MAX_LEN);
-			//	printf("Relaying chat message:\n\t\"%s\" to all users\n",
-			//	       send_msg.chat.text);
-			/* TODO: Find a way to send this message to all users that are part
-			 * of the channel's list that was specified in the recv()'d CHAT
-			 * message (i.e. function that loops over the channel's user list
-			 * and sends it to all of them except the source user).
-			 */
+			/* Prepare CHAT response to src_user */
+			send_msg->response = handle_chat_msg(srcfd, recv_msg);
+			strncpy(send_msg->chat.src_user, recv_msg->chat.src_user,
+				USER_NAME_MAX_LEN);
+			strncpy(send_msg->chat.channel_name,
+				recv_msg->chat.channel_name, CHANNEL_NAME_MAX_LEN);
+			strncpy(send_msg->chat.text, recv_msg->chat.text,
+				CHAT_MSG_MAX_LEN);
 			break;
+
 		default:
 			/* Invalid or unimplemented message types */
 			break;
 	}
 
-free_recv_msg:
+	send_msg->type = recv_msg->type;
+
+send_response:
+	bytes = send(srcfd, send_msg, MSG_SIZE, 0);
+	if (bytes != MSG_SIZE)
+		perror("send");
+
 	free(recv_msg);
+	free(send_msg);
 }
 
 int main(int argc, char *argv[])

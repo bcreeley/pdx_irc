@@ -3,6 +3,48 @@
 #include <stdlib.h>
 #include <string.h>
 
+bool is_equal_channels(void *c1, void *c2)
+{
+	char *c1_name, *c2_name;
+
+	if (!c1 || !c2)
+		return false;
+
+	c1_name = ((struct channel *)c1)->name;
+	c2_name = ((struct channel *)c2)->name;
+	if (strcmp(c1_name, c2_name) == 0)
+		return true;
+
+	return false;
+}
+
+#if 0
+struct channel *get_channel(struct list_node *head, char *channel_name)
+{
+	struct channel c;
+
+	strncpy(c.name, channel_name, CHANNEL_NAME_MAX_LEN);
+
+	return get_list_node_data(head, &c, is_equal_channels);
+}
+#endif
+
+bool is_equal_users(void *u1, void *u2)
+{
+	struct user *user1, *user2;
+
+	if (!u1 || !u2)
+		return false;
+
+	user1 = u1;
+	user2 = u2;
+
+	if (user1->fd == user2->fd && strcmp(user1->name, user2->name) == 0)
+		return true;
+
+	return false;
+}
+
 /**
  * add_list_node - Adds a list_node right after the head of the list
  *
@@ -83,7 +125,7 @@ struct list_node *rm_list_node(struct list_node **head, void *data,
 bool list_contains(struct list_node *head, void *data,
 		   bool (*is_equal)(void *d1, void *d2))
 {
-	if (!data || !head)
+	if (!data)
 		return false;
 
 	for (head; head != NULL; head = head->next)
@@ -93,6 +135,29 @@ bool list_contains(struct list_node *head, void *data,
 	return false;
 }
 
+
+/**
+ * get_list_node_data - find the data passed in within the list
+ *
+ * @head: head of the list used to iterate through the list
+ * @data: data to look for in the list
+ * @is_equal: function used for comparing data sent in with list_node data
+ *
+ * Returns a pointer to the found data on success, otherwise NULL on failure
+ */
+void *get_list_node_data(struct list_node *head, void *data,
+			 bool (*is_equal)(void *d1, void *d2))
+{
+	if (!data)
+		return NULL;
+
+	for (head; head != NULL; head = head->next)
+		if (is_equal(head->data, data))
+			return head->data;
+
+	return NULL;
+}
+
 #if 0
 int main(int argc, char *argv[])
 {
@@ -100,6 +165,7 @@ int main(int argc, char *argv[])
 
 	struct list_node *tmp = NULL;
 	struct channel c1, c2, c3;
+	struct channel *channel;
 
 	strncpy(c1.name, "LinuxFTW!", sizeof("LINUXFTW!"));
 	strncpy(c2.name, "WindowsFTL!", sizeof("WindowsFTL"));
@@ -116,9 +182,11 @@ int main(int argc, char *argv[])
 		printf("Failed to add c2 list_node\n");
 
 
-	for (tmp = head; tmp != NULL; tmp = tmp->next) {
-		printf("tmp->data = %s\n", ((struct channel *)(tmp->data))->name);
-	}
+	channel = get_channel(head, c3.name);
+	if (!channel)
+		printf("Could not find list_node with c3\n");
+	else
+		printf("channel->name = %s\n", channel->name);
 
 
 	for (tmp = head; tmp != NULL; tmp = tmp->next) {

@@ -34,12 +34,13 @@
 
 enum message_type {
 	MSG_TYPE_INVALID = 0,
-	LOGIN		 = 1,
-	JOIN		 = 2,
-	LEAVE		 = 3,
-	CHAT		 = 4,
-	LIST_CHANNELS	 = 5,	/* channel names are separated by ":" */
-	LIST_USERS	 = 6,	/* user names are separated by ":" */
+	ERROR		 = 1,
+	LOGIN		 = 2,
+	JOIN		 = 3,
+	LEAVE		 = 4,
+	CHAT		 = 5,
+	LIST_CHANNELS	 = 6,	/* channel names are separated by ":" */
+	LIST_USERS	 = 7,	/* user names are separated by ":" */
 
 	/* Do not put any new message types after MAX_MSG_NUM */
 	MAX_MSG_NUM	 = 255
@@ -59,6 +60,10 @@ struct message {
 #define RESP_ALREADY_IN_CHANNEL		BIT(4)
 #define RESP_SERVER_HAS_NO_CHANNELS 	BIT(5)
 #define RESP_CANNOT_GET_USERS		BIT(6)
+#define RESP_RECV_MSG_FAILED		BIT(7)
+#define RESP_MEMORY_ALLOC		BIT(8)
+#define RESP_CANNOT_ADD_CHANNEL		BIT(9)
+#define RESP_ADD_USER_TO_CHANNEL	BIT(10)
 /* BIT(31) is the largest define with resposne being a 32-bit value */
 	uint32_t response;
 	uint32_t length;	/* Only used for LIST_USERS/LIST_CHANNELS */
