@@ -11,13 +11,20 @@
  *
  * Returns -1 on error, 0 on success
  */
-int add_list_node(struct list_node *head, struct list_node *add)
+int add_list_node(struct list_node **head, struct list_node *add)
 {
-	if (!head || !add)
+	struct list_node *tmp = *head;
+
+	if (!add)
 		return -1;
 
-	add->next = head->next;
-	head->next = add;
+	if (!tmp) {
+		add->next = NULL;
+		*head = add;
+	} else {
+		add->next = tmp->next;
+		tmp->next = add;
+	}
 
 	return 0;
 }
@@ -88,7 +95,6 @@ bool list_contains(struct list_node *head, void *data,
 	return false;
 }
 
-#if 0
 int main(int argc, char *argv[])
 {
 	struct list_node *head = NULL;
@@ -100,14 +106,16 @@ int main(int argc, char *argv[])
 	strncpy(c2.name, "WindowsFTL!", sizeof("WindowsFTL"));
 	strncpy(c3.name, "GraduationFTW!", sizeof("GraduationFTW!"));
 
-	head = calloc(1, sizeof(struct list_node));
-	head->next = NULL;
-	head->data = (void *)&c1;
+	tmp = calloc(1, sizeof(struct list_node));
+	tmp->data = (void *)&c1;
+	if (add_list_node(&head, tmp))
+		printf("Failed to add c1 list_node\n");
 
 	tmp = calloc(1, sizeof(struct list_node));
-	tmp->next = head->next;
-	head->next = tmp;
 	tmp->data = (void *)&c2;
+	if (add_list_node(&head, tmp))
+		printf("Failed to add c2 list_node\n");
+
 
 	for (tmp = head; tmp != NULL; tmp = tmp->next) {
 		printf("tmp->data = %s\n", ((struct channel *)(tmp->data))->name);
@@ -151,5 +159,4 @@ int main(int argc, char *argv[])
 #endif
 	return 0;
 }
-#endif
 

@@ -44,7 +44,7 @@ struct list_node {
 	void *data;
 };
 
-int add_list_node(struct list_node *head, struct list_node *add);
+int add_list_node(struct list_node **head, struct list_node *add);
 
 struct list_node *
 rm_list_node(struct list_node **head, void *data,
