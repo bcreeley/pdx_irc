@@ -121,7 +121,6 @@ static uint32_t handle_join_msg(int srcfd, struct message *msg)
 		}
 	}
 
-	//TODO: Don't let same user join same channel again
 	user = calloc(1, sizeof(*user));
 	if (!user) {
 		perror("calloc");
