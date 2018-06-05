@@ -187,6 +187,7 @@ static uint32_t handle_chat_msg(int srcfd, struct message *msg)
 	if (!is_user_in_channel(channel, &user))
 		return RESP_NOT_IN_CHANNEL;
 
+	/* Send chat message to all users in the channel */
 	for (tmp = channel->user_list_head; tmp != NULL; tmp = tmp->next) {
 		/* Don't echo the chat message back to the sender */
 		if (is_equal_users(&user, tmp->data))
@@ -199,6 +200,37 @@ static uint32_t handle_chat_msg(int srcfd, struct message *msg)
 	}
 
 	return RESP_SUCCESS;
+}
+
+static void build_response_msg(struct message *send_msg, struct message *recv_msg)
+{
+	send_msg->type = recv_msg->type;
+
+	switch (recv_msg->type) {
+	case JOIN:
+		strncpy(send_msg->join.src_user, recv_msg->join.src_user,
+			USER_NAME_MAX_LEN);
+		strncpy(send_msg->join.channel_name,
+			recv_msg->join.channel_name, CHANNEL_NAME_MAX_LEN);
+		break;
+	case LEAVE:
+		strncpy(send_msg->join.src_user, recv_msg->join.src_user,
+			USER_NAME_MAX_LEN);
+		strncpy(send_msg->join.channel_name, recv_msg->join.channel_name,
+			CHANNEL_NAME_MAX_LEN);
+		break;
+	case CHAT:
+		strncpy(send_msg->chat.src_user, recv_msg->chat.src_user,
+			USER_NAME_MAX_LEN);
+		strncpy(send_msg->chat.channel_name, recv_msg->chat.channel_name,
+			CHANNEL_NAME_MAX_LEN);
+		strncpy(send_msg->chat.text, recv_msg->chat.text,
+			CHAT_MSG_MAX_LEN);
+		break;
+	default:
+		printf("Unimplemented message type %d\n", recv_msg->type);
+		break;
+	}
 }
 
 static void handle_recv_msg(int epollfd, int srcfd)
@@ -229,14 +261,8 @@ static void handle_recv_msg(int epollfd, int srcfd)
 
 	switch (recv_msg->type) {
 		case JOIN:
-			/* Prepare JOIN response to src_user */
 			send_msg->response = handle_join_msg(srcfd, recv_msg);
-			strncpy(send_msg->join.src_user, recv_msg->join.src_user,
-				USER_NAME_MAX_LEN);
-			strncpy(send_msg->join.channel_name,
-				recv_msg->join.channel_name, CHANNEL_NAME_MAX_LEN);
 			break;
-
 		case LEAVE:
 			printf("User: %s wants to leave channel: %s\n",
 			       recv_msg->leave.src_user,
@@ -246,30 +272,17 @@ static void handle_recv_msg(int epollfd, int srcfd)
 			//TODO: implement handle_leave_msg
 			//send_msg->response = handle_leave_msg(srcfd, recv_msg);
 			send_msg->response = RESP_SUCCESS;
-			strncpy(send_msg->join.src_user, recv_msg->join.src_user,
-				USER_NAME_MAX_LEN);
-			strncpy(send_msg->join.channel_name,
-				recv_msg->join.channel_name, CHANNEL_NAME_MAX_LEN);
-
 			break;
-
 		case CHAT:
 			/* Prepare CHAT response to src_user */
 			send_msg->response = handle_chat_msg(srcfd, recv_msg);
-			strncpy(send_msg->chat.src_user, recv_msg->chat.src_user,
-				USER_NAME_MAX_LEN);
-			strncpy(send_msg->chat.channel_name,
-				recv_msg->chat.channel_name, CHANNEL_NAME_MAX_LEN);
-			strncpy(send_msg->chat.text, recv_msg->chat.text,
-				CHAT_MSG_MAX_LEN);
 			break;
-
 		default:
 			/* Invalid or unimplemented message types */
 			break;
 	}
 
-	send_msg->type = recv_msg->type;
+	build_response_msg(send_msg, recv_msg);
 
 send_response:
 	bytes = send(srcfd, send_msg, MSG_SIZE, 0);
