@@ -144,6 +144,47 @@ static struct message *parse_user_input()
 	return send_msg;
 }
 
+static int handle_recv_msg(int recvfd)
+{
+	struct message *recv_msg;
+	int result;
+	int bytes;
+
+	recv_msg = (struct message *)calloc(1, sizeof(*recv_msg));
+	if (!recv_msg) {
+		perror("calloc");
+		return -1;
+	}
+
+	bytes = recv(recvfd, recv_msg, MSG_SIZE, MSG_WAITALL);
+	if (bytes < 0) {
+		perror("recv");
+		free(recv_msg);
+		return -1;
+	}
+
+	switch (recv_msg->type) {
+	case CHAT:
+		printf("recv_msg type %s response %s\n",
+		       msg_type_to_str(recv_msg->type),
+		       resp_type_to_str(recv_msg->response));
+
+		if (recv_msg->response == RESP_SUCCESS)
+			printf("(%s) %s: %s\n", recv_msg->chat.channel_name,
+		      	       recv_msg->chat.src_user, recv_msg->chat.text);
+
+		break;
+	default:
+		printf("Unhandled receive message %s with response %s\n",
+		       msg_type_to_str(recv_msg->type),
+		       resp_type_to_str(recv_msg->response));
+		return -1;
+		break;
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int sockfd, epollfd;
@@ -183,6 +224,7 @@ int main(int argc, char *argv[])
 
 			switch (event_mask) {
 			case EPOLLIN:
+				/* Read user input */
 				if (eventfd == STDIN_FILENO) {
 					struct message *send_msg;
 					int bytes;
@@ -202,24 +244,10 @@ int main(int argc, char *argv[])
 					}
 					free(send_msg);
 
-				} else if (eventfd == sockfd) { /* Received CHAT */
-					struct message *recv_msg;
-
-					recv_msg = (struct message *)calloc(1, sizeof(*recv_msg));
-					if (!recv_msg) {
-						perror("calloc");
-						goto exit_fail_close_epollfd;
-					}
-
-					bytes = recv(sockfd, recv_msg, MSG_SIZE, MSG_WAITALL);
-					if (bytes < 0) {
-						perror("recv");
-						goto exit_fail_close_epollfd;
-					}
-
-					printf("recv_msg type %s response %s\n",  msg_type_to_str(recv_msg->type),
-					       resp_type_to_str(recv_msg->response) /*recv_msg->chat.text*/);
-
+				/* Received CHAT or server response message */
+				} else if (eventfd == sockfd) {
+					if (handle_recv_msg(sockfd))
+						printf("Failed to handle_recv_msg");
 				}
 
 				break;

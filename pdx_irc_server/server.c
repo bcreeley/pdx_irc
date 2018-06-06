@@ -114,7 +114,6 @@ static uint32_t handle_join_msg(int srcfd, struct message *msg)
 			CHANNEL_NAME_MAX_LEN);
 		add_node->data = c;
 		if (add_list_node(&channel_list_head, add_node)) {
-			//TODO: Send error message back to client
 			printf("Failed to add channel node\n");
 			free(c);
 			free(add_node);
