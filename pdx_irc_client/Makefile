@@ -6,9 +6,19 @@ CFLAGS+=-g
 COMMON_DIR = ../common
 LIST_DIR = $(COMMON_DIR)/list
 EPOLL_DIR = $(COMMON_DIR)/epoll
+DEBUG_DIR = $(COMMON_DIR)/debug
 
-SRC = client.c $(EPOLL_DIR)/epoll_helpers.c $(LIST_DIR)/list.c
-OBJS = client.o epoll_helpers.o list.o
+SRC =					\
+	client.c			\
+	$(EPOLL_DIR)/epoll_helpers.c	\
+	$(LIST_DIR)/list.c		\
+	$(DEBUG_DIR)/debug.c
+
+OBJS =			\
+	client.o	\
+	epoll_helpers.o	\
+	list.o 		\
+	debug.o
 
 .PHONY: client
 client: $(OBJS)

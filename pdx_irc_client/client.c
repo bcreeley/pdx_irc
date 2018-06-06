@@ -14,6 +14,7 @@
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include "../common/epoll/epoll_helpers.h"
+#include "../common/debug/debug.h"
 
 #define MAX_EPOLL_EVENTS	10
 #define MAX_CMDLINE_INPUT	1024
@@ -114,6 +115,22 @@ static struct message *parse_user_input()
 		strncpy(send_msg->chat.text,
 			"Hello Bquigs!",
 			sizeof("Hello Bquigs!"));
+	} else if (strcasestr(input, ":LEAVEA") != NULL) {
+		send_msg->type = LEAVE;
+		strncpy(send_msg->leave.src_user,
+			"Ann",
+			sizeof("Ann"));
+		strncpy(send_msg->leave.channel_name,
+			"LinuxFTW!",
+			sizeof("LinuxFTW!"));
+	} else if (strcasestr(input, ":LEAVEA") != NULL) {
+		send_msg->type = LEAVE;
+		strncpy(send_msg->leave.src_user,
+			"Bquigs",
+			sizeof("Bquigs"));
+		strncpy(send_msg->leave.channel_name,
+			"LinuxFTW!",
+			sizeof("LinuxFTW!"));
 	} else {
 		printf("Help:\n");
 		printf("\t:JOIN  <channel_name>\n");
@@ -200,8 +217,8 @@ int main(int argc, char *argv[])
 						goto exit_fail_close_epollfd;
 					}
 
-					printf("recv_msg type %d response %d\n",  recv_msg->type,
-					       recv_msg->response /*recv_msg->chat.text*/);
+					printf("recv_msg type %s response %s\n",  msg_type_to_str(recv_msg->type),
+					       resp_type_to_str(recv_msg->response) /*recv_msg->chat.text*/);
 
 				}
 

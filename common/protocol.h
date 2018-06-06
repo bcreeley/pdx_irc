@@ -46,6 +46,7 @@ enum message_type {
 	MAX_MSG_NUM	 = 255
 };
 
+
 /* Make sure there is no padding in message structures */
 #pragma pack(push, 1)
 
@@ -63,7 +64,7 @@ struct message {
 #define RESP_RECV_MSG_FAILED		BIT(7)
 #define RESP_MEMORY_ALLOC		BIT(8)
 #define RESP_CANNOT_ADD_CHANNEL		BIT(9)
-#define RESP_ADD_USER_TO_CHANNEL	BIT(10)
+#define RESP_CANNOT_ADD_USER_TO_CHANNEL	BIT(10)
 /* BIT(31) is the largest define with resposne being a 32-bit value */
 	uint32_t response;
 	uint32_t length;	/* Only used for LIST_USERS/LIST_CHANNELS */

@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include "../common/epoll/epoll_helpers.h"
 #include "../common/list/list.h"
+#include "../common/debug/debug.h"
 
 #define MAX_EPOLL_EVENTS 10
 
@@ -156,7 +157,7 @@ static uint32_t handle_join_msg(int srcfd, struct message *msg)
 		printf("Failed to add user node\n");
 		free(user);
 		free(add_node);
-		return RESP_ADD_USER_TO_CHANNEL;
+		return RESP_CANNOT_ADD_USER_TO_CHANNEL;
 	} else {
 		printf("successfully added user %s with fd %d to channel %s\n",
 		      user->name, user->fd, msg->join.channel_name);
@@ -177,7 +178,7 @@ static uint32_t handle_chat_msg(int srcfd, struct message *msg)
 	       msg->chat.text);
 
 	/* Setup src_user data to avoid echoing message back to sender */
-	strncpy(user.name, msg->chat.src_user, sizeof(msg->chat.src_user));
+	strncpy(user.name, msg->chat.src_user, USER_NAME_MAX_LEN);
 	user.fd = srcfd;
 	/* Make sure this message is directed towards a real channel */
 	channel = get_channel(msg->chat.channel_name);
@@ -196,10 +197,45 @@ static uint32_t handle_chat_msg(int srcfd, struct message *msg)
 		bytes = send(((struct user *)(tmp->data))->fd, msg, MSG_SIZE, 0);
 		if (bytes != MSG_SIZE) {
 			perror("send");
+			printf("Failed to send chat message to fd %d\n",
+			       ((struct user *)(tmp->data))->fd);
 		}
 	}
 
 	return RESP_SUCCESS;
+}
+
+static uint32_t rm_user_from_channel(struct channel *channel, struct user *user)
+{
+	struct list_node *the_user;
+
+	if (!channel || !user)
+		return -1;
+
+	the_user = rm_list_node(&channel->user_list_head, user, is_equal_users);
+	if (!the_user)
+		return RESP_NOT_IN_CHANNEL;
+
+	/* Have to delete the user that we removed from the list */
+	free(the_user);
+
+	return RESP_SUCCESS;
+}
+
+static uint32_t handle_leave_msg(int srcfd, struct message *msg)
+{
+	struct channel *channel;
+	struct list_node *tmp;
+	struct user user;
+
+	strncpy(user.name, msg->leave.src_user, USER_NAME_MAX_LEN);
+	user.fd = srcfd;
+
+	channel = get_channel(msg->leave.channel_name);
+	if (!channel)
+		return RESP_INVALID_CHANNEL_NAME;
+
+	return rm_user_from_channel(channel, &user);
 }
 
 static void build_response_msg(struct message *send_msg, struct message *recv_msg)
@@ -214,9 +250,9 @@ static void build_response_msg(struct message *send_msg, struct message *recv_ms
 			recv_msg->join.channel_name, CHANNEL_NAME_MAX_LEN);
 		break;
 	case LEAVE:
-		strncpy(send_msg->join.src_user, recv_msg->join.src_user,
+		strncpy(send_msg->leave.src_user, recv_msg->leave.src_user,
 			USER_NAME_MAX_LEN);
-		strncpy(send_msg->join.channel_name, recv_msg->join.channel_name,
+		strncpy(send_msg->leave.channel_name, recv_msg->leave.channel_name,
 			CHANNEL_NAME_MAX_LEN);
 		break;
 	case CHAT:
@@ -228,7 +264,8 @@ static void build_response_msg(struct message *send_msg, struct message *recv_ms
 			CHAT_MSG_MAX_LEN);
 		break;
 	default:
-		printf("Unimplemented message type %d\n", recv_msg->type);
+		printf("Invalid/unimplemented message type %s\n",
+		       msg_type_to_str(recv_msg->type));
 		break;
 	}
 }
@@ -267,18 +304,15 @@ static void handle_recv_msg(int epollfd, int srcfd)
 			printf("User: %s wants to leave channel: %s\n",
 			       recv_msg->leave.src_user,
 			       recv_msg->leave.channel_name);
-			/* TODO: Remove user from specific channel's user list */
-
-			//TODO: implement handle_leave_msg
-			//send_msg->response = handle_leave_msg(srcfd, recv_msg);
-			send_msg->response = RESP_SUCCESS;
+			send_msg->response = handle_leave_msg(srcfd, recv_msg);
 			break;
 		case CHAT:
-			/* Prepare CHAT response to src_user */
 			send_msg->response = handle_chat_msg(srcfd, recv_msg);
 			break;
 		default:
 			/* Invalid or unimplemented message types */
+			printf("Invalid/unimplemented message type %s\n",
+			       msg_type_to_str(recv_msg->type));
 			break;
 	}
 
