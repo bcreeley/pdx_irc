@@ -75,8 +75,6 @@ err_closefd:
 
 static bool is_user_in_channel(struct channel *c, struct user *u)
 {
-	struct list_node *tmp;
-
 	if (!c || !u)
 		return false;
 
@@ -224,7 +222,6 @@ static uint32_t rm_user_from_channel(struct channel *channel, struct user *user)
 static uint32_t handle_leave_msg(int srcfd, struct message *msg)
 {
 	struct channel *channel;
-	struct list_node *tmp;
 	struct user user;
 
 	strncpy(user.name, msg->leave.src_user, USER_NAME_MAX_LEN);
@@ -269,12 +266,17 @@ static void build_response_msg(struct message *send_msg, struct message *recv_ms
 	}
 }
 
+#if 0
+/* TODO: Implement this to send list of channels to user */
 static int handle_list_channels_msg(int srcfd, struct message *msg)
 {
 	for_each_list_node(channel_list_head) {
 
 	}
+
+	return 0;
 }
+#endif
 
 static void handle_recv_msg(int epollfd, int srcfd)
 {
@@ -336,8 +338,8 @@ send_response:
 int main(int argc, char *argv[])
 {
 #define EPOLL_CLIENT_DISCONNECT (EPOLLRDHUP | EPOLLIN)
-	struct epoll_event epoll_ev, events[MAX_EPOLL_EVENTS];
-	int serverfd, connfd, epollfd, result;
+	struct epoll_event events[MAX_EPOLL_EVENTS];
+	int serverfd, epollfd;
 
 	if (setup_server_socket(&serverfd) < 0)
 		exit(EXIT_FAILURE);
@@ -352,7 +354,7 @@ int main(int argc, char *argv[])
 	printf("epollfd %d\n", epollfd);
 
 	while (1) {
-		int nfds, connfd, i;
+		int nfds, i;
 
 		nfds = epoll_wait(epollfd, events, MAX_EPOLL_EVENTS, -1);
 		if (nfds == -1) {
