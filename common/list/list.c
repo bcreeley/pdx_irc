@@ -3,6 +3,39 @@
 #include <stdlib.h>
 #include <string.h>
 
+int add_channel(struct list_node **head, char *channel_name)
+{
+		struct list_node *add_node;
+		struct channel *c;
+
+		if (!channel_name)
+			return -1;
+
+		c = calloc(1, sizeof(*c));
+		if (!c) {
+			perror("calloc");
+			return -1;
+		}
+
+		add_node = calloc(1, sizeof(*add_node));
+		if (!add_node) {
+			perror("malloc");
+			free(c);
+			return -1;
+		}
+
+		strncpy(c->name, channel_name, CHANNEL_NAME_MAX_LEN);
+		add_node->data = c;
+		if (add_list_node(head, add_node)) {
+			printf("Failed to add channel node\n");
+			free(c);
+			free(add_node);
+			return -1;
+	}
+
+	return 0;
+}
+
 bool is_equal_channels(void *c1, void *c2)
 {
 	char *c1_name, *c2_name;
@@ -125,11 +158,13 @@ struct list_node *rm_list_node(struct list_node **head, void *data,
 bool list_contains(struct list_node *head, void *data,
 		   bool (*is_equal)(void *d1, void *d2))
 {
+	struct list_node *tmp;
+
 	if (!data)
 		return false;
 
-	for_each_list_node(head)
-		if (is_equal(head->data, data))
+	for (tmp = head; tmp != NULL; tmp = tmp->next)
+		if (is_equal(tmp->data, data))
 			return true;
 
 	return false;
@@ -148,12 +183,15 @@ bool list_contains(struct list_node *head, void *data,
 void *get_list_node_data(struct list_node *head, void *data,
 			 bool (*is_equal)(void *d1, void *d2))
 {
-	if (!data)
+	struct list_node *tmp;
+	if (!data) {
+		printf("list node data is null!\n");
 		return NULL;
+	}
 
-	for_each_list_node(head)
-		if (is_equal(head->data, data))
-			return head->data;
+	for (tmp = head; tmp != NULL; tmp = tmp->next)
+		if (is_equal(tmp->data, data))
+			return tmp->data;
 
 	return NULL;
 }

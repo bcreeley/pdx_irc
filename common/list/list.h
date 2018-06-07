@@ -5,16 +5,13 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define for_each_list_node(h) \
-	struct list_node *tmp; \
-	for (tmp = h; tmp != NULL; tmp = tmp->next)
-
 struct channel {
 	char name[CHANNEL_NAME_MAX_LEN];
 	int num_users;
 	struct list_node *user_list_head;
 };
 
+int add_channel(struct list_node **head, char *channel_name);
 bool is_equal_channels(void *c1, void *c2);
 
 #if 0

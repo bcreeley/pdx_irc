@@ -27,6 +27,7 @@ static struct channel *get_channel(char *channel_name)
 	struct channel c;
 
 	strncpy(c.name, channel_name, CHANNEL_NAME_MAX_LEN);
+	printf("c.name %s channel_name %s\n", c.name, channel_name);
 
 	return get_list_node_data(channel_list_head, &c, is_equal_channels);
 }
@@ -91,33 +92,9 @@ static uint32_t handle_join_msg(int srcfd, struct message *msg)
 	       msg->join.channel_name, msg->join.src_user);
 
 	channel = get_channel(msg->join.channel_name);
-	if (!channel) {
-		struct list_node *add_node;
-		struct channel *c;
-
-		c = calloc(1, sizeof(*c));
-		if (!c) {
-			perror("calloc");
-			return RESP_MEMORY_ALLOC;
-		}
-
-		add_node = calloc(1, sizeof(*add_node));
-		if (!add_node) {
-			perror("malloc");
-			free(c);
-			return RESP_MEMORY_ALLOC;
-		}
-
-		strncpy(c->name, msg->join.channel_name,
-			CHANNEL_NAME_MAX_LEN);
-		add_node->data = c;
-		if (add_list_node(&channel_list_head, add_node)) {
-			printf("Failed to add channel node\n");
-			free(c);
-			free(add_node);
-			return RESP_CANNOT_ADD_CHANNEL;
-		}
-	}
+	/* Add channel if it doesn't exist already */
+	if (!channel && add_channel(&channel_list_head, msg->join.channel_name))
+		return RESP_CANNOT_ADD_CHANNEL;
 
 	user = calloc(1, sizeof(*user));
 	if (!user) {

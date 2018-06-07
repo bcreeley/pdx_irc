@@ -67,9 +67,9 @@ struct message {
 #define RESP_CANNOT_ADD_USER_TO_CHANNEL	BIT(10)
 #define RESP_STILL_CHANNELS_REMAINING	BIT(11)
 #define RESP_DONE_SENDING_CHANNELS	BIT(12)
+#define RESP_LIST_CHANNELS_IN_PROGRESS	BIT(13)
 /* BIT(31) is the largest define with resposne being a 32-bit value */
 	uint32_t response;
-	uint8_t list_key;	/* Only used for list_channels */
 	union {
 		struct {
 			char username[USER_NAME_MAX_LEN];
@@ -88,7 +88,14 @@ struct message {
 			char channel_name[CHANNEL_NAME_MAX_LEN];
 			char text[CHAT_MSG_MAX_LEN];
 		} chat;
+		/* Server only sends one channel name back to src_user at a
+		 * time, but the list_key remains the same. The server needs to
+		 * set RESP_LIST_CHANNELS_IN_PROGRESS in the message response to
+		 * let the client know more channels are coming. On the last
+		 * channel send the server will set the response to RESP_SUCCES
+		 */
 		struct {
+			uint8_t list_key;
 			char src_user[USER_NAME_MAX_LEN];
 			char channel_name[CHANNEL_NAME_MAX_LEN];
 		} list_channels;

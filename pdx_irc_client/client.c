@@ -16,6 +16,9 @@
 #include "../common/epoll/epoll_helpers.h"
 #include "../common/debug/debug.h"
 
+/* User can only request for channel list once before this list is deleted */
+struct list_node *channel_list_head = NULL;
+
 #define MAX_EPOLL_EVENTS	10
 #define MAX_CMDLINE_INPUT	1024
 /**
@@ -78,59 +81,41 @@ static struct message *parse_user_input()
 
 	if (strcasestr(input, ":JOINB") != NULL) {
 		send_msg->type = JOIN;
-		strncpy(send_msg->join.src_user,
-			"Bquigs",
-			sizeof("Bquigs"));
-		strncpy(send_msg->join.channel_name,
-			"LinuxFTW!",
-			sizeof("LinxuFTW!"));
+		strcpy(send_msg->join.src_user, "Bquigs");
+		strcpy(send_msg->join.channel_name, "LinuxFTW!");
 	} else if (strcasestr(input, ":JOINA") != NULL) {
 		send_msg->type = JOIN;
-		strncpy(send_msg->join.src_user,
-			"Ann",
-			sizeof("Ann"));
-		strncpy(send_msg->join.channel_name,
-			"LinuxFTW!",
-			sizeof("LinuxFTW!"));
+		strcpy(send_msg->join.src_user, "Ann");
+		strcpy(send_msg->join.channel_name, "LinuxFTW!");
+	} else if (strcasestr(input, ":JOIN1") != NULL) {
+		send_msg->type = JOIN;
+		strcpy(send_msg->join.src_user, "Ann");
+		strcpy(send_msg->join.channel_name, "Channel1!");
+	} else if (strcasestr(input, ":JOIN2") != NULL) {
+		send_msg->type = JOIN;
+		strcpy(send_msg->join.src_user, "Ann");
+		strcpy(send_msg->join.channel_name, "Channel2!");
 	} else if (strcasestr(input, ":CHATB") != NULL) {
 		send_msg->type = CHAT;
-		strncpy(send_msg->chat.src_user,
-			"Bquigs",
-			sizeof("Bquigs"));
-		strncpy(send_msg->chat.channel_name,
-			"LinuxFTW!",
-			sizeof("LinuxFTW!"));
-		strncpy(send_msg->chat.text,
-			"Hello Ann!",
-			sizeof("Hello Ann!"));
+		strcpy(send_msg->chat.src_user, "Bquigs");
+		strcpy(send_msg->chat.channel_name, "LinuxFTW!");
+		strcpy(send_msg->chat.text, "Hello Ann!");
 	} else if (strcasestr(input, ":CHATA") != NULL) {
 		send_msg->type = CHAT;
-		strncpy(send_msg->chat.src_user,
-			"Ann",
-			sizeof("Ann"));
-		strncpy(send_msg->chat.channel_name,
-			"LinuxFTW!",
-			sizeof("LinuxFTW!"));
-		strncpy(send_msg->chat.text,
-			"Hello Bquigs!",
-			sizeof("Hello Bquigs!"));
+		strcpy(send_msg->chat.src_user, "Ann");
+		strcpy(send_msg->chat.channel_name, "LinuxFTW!");
+		strcpy(send_msg->chat.text, "Hello Bquigs!");
 	} else if (strcasestr(input, ":LEAVEA") != NULL) {
 		send_msg->type = LEAVE;
-		strncpy(send_msg->leave.src_user,
-			"Ann",
-			sizeof("Ann"));
-		strncpy(send_msg->leave.channel_name,
-			"LinuxFTW!",
-			sizeof("LinuxFTW!"));
+		strcpy(send_msg->leave.src_user, "Ann");
+		strcpy(send_msg->leave.channel_name, "LinuxFTW!");
 	} else if (strcasestr(input, ":LEAVEA") != NULL) {
 		send_msg->type = LEAVE;
-		strncpy(send_msg->leave.src_user, "Bquigs", sizeof("Bquigs"));
-		strncpy(send_msg->leave.channel_name, "LinuxFTW!",
-			sizeof("LinuxFTW!"));
+		strcpy(send_msg->leave.src_user, "Bquigs");
+		strcpy(send_msg->leave.channel_name, "LinuxFTW!");
 	} else if (strcasestr(input, ":LIST CHANNELS") != NULL) {
 		send_msg->type = LIST_CHANNELS;
-		strncpy(send_msg->list_channels.src_user, "Bquigs",
-			sizeof("Bquigs"));
+		strcpy(send_msg->list_channels.src_user, "Bquigs");
 	} else {
 		printf("Help:\n");
 		printf("\t:JOIN  <channel_name>\n");
@@ -147,6 +132,7 @@ static struct message *parse_user_input()
 static int handle_recv_msg(int recvfd)
 {
 	struct message *recv_msg;
+	int ret = 0;
 	int bytes;
 
 	recv_msg = (struct message *)calloc(1, sizeof(*recv_msg));
@@ -158,8 +144,8 @@ static int handle_recv_msg(int recvfd)
 	bytes = recv(recvfd, recv_msg, MSG_SIZE, MSG_WAITALL);
 	if (bytes < 0) {
 		perror("recv");
-		free(recv_msg);
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	switch (recv_msg->type) {
@@ -173,15 +159,26 @@ static int handle_recv_msg(int recvfd)
 		      	       recv_msg->chat.src_user, recv_msg->chat.text);
 
 		break;
+#if 0
+	case LIST_CHANNELS:
+		printf("recv_msg type %s response %s\n",
+		       msg_type_to_str(recv_msg->type),
+		       resp_type_to_str(recv_msg->response));
+
+		if (recv_msg->resp & RESP_LIST_CHANNELS_IN_PROGRESS) {
+			ret = add_channel_to_list(recv_msg->list_channels.channel_name);
+#endif
 	default:
 		printf("Unhandled receive message %s with response %s\n",
 		       msg_type_to_str(recv_msg->type),
 		       resp_type_to_str(recv_msg->response));
-		return -1;
+		ret = -1;
 		break;
 	}
 
-	return 0;
+out:
+	free(recv_msg);
+	return ret;
 }
 
 int main(int argc, char *argv[])
