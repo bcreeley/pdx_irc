@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define for_each_list_node(h) \
+	struct list_node *tmp; \
+	for (tmp = head; tmp != NULL; tmp = tmp->next)
+
 struct channel {
 	char name[CHANNEL_NAME_MAX_LEN];
 	int num_users;

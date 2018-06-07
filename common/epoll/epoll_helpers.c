@@ -62,9 +62,9 @@ int accept_new_epoll_member(int epollfd, int listenfd)
 	return 0;
 }
 
-int debug_print_epoll_event(int eventfd, uint32_t event_mask)
+void debug_print_epoll_event(int eventfd, uint32_t event_mask)
 {
-	printf("fd=%d; events:%s%s%s%s%s%s%s\n",
+	printf("fd=%d; events:%s%s%s%s%s%s%s%s\n",
 	       eventfd,
 	       (event_mask & EPOLLIN)      ? " EPOLLIN"      : "",
 	       (event_mask & EPOLLPRI)     ? " EPOLLPRI"     : "",

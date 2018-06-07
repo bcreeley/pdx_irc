@@ -1,7 +1,7 @@
 # Makefile for pdx irc client
 # Author: Brett Creeley
 
-CFLAGS+=-g
+CFLAGS+=-g -Wall -Werror
 
 COMMON_DIR = ../common
 LIST_DIR = $(COMMON_DIR)/list

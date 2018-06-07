@@ -27,7 +27,6 @@
 int connect_to_server(int *sockfd)
 {
 	struct sockaddr_in serv_addr = { 0 };
-	int result;
 
 	if (!sockfd)
 		return -1;
@@ -125,12 +124,13 @@ static struct message *parse_user_input()
 			sizeof("LinuxFTW!"));
 	} else if (strcasestr(input, ":LEAVEA") != NULL) {
 		send_msg->type = LEAVE;
-		strncpy(send_msg->leave.src_user,
-			"Bquigs",
-			sizeof("Bquigs"));
-		strncpy(send_msg->leave.channel_name,
-			"LinuxFTW!",
+		strncpy(send_msg->leave.src_user, "Bquigs", sizeof("Bquigs"));
+		strncpy(send_msg->leave.channel_name, "LinuxFTW!",
 			sizeof("LinuxFTW!"));
+	} else if (strcasestr(input, ":LIST CHANNELS") != NULL) {
+		send_msg->type = LIST_CHANNELS;
+		strncpy(send_msg->list_channels.src_user, "Bquigs",
+			sizeof("Bquigs"));
 	} else {
 		printf("Help:\n");
 		printf("\t:JOIN  <channel_name>\n");
@@ -147,7 +147,6 @@ static struct message *parse_user_input()
 static int handle_recv_msg(int recvfd)
 {
 	struct message *recv_msg;
-	int result;
 	int bytes;
 
 	recv_msg = (struct message *)calloc(1, sizeof(*recv_msg));
@@ -206,7 +205,7 @@ int main(int argc, char *argv[])
 
 	while (1) {
 		struct epoll_event events[MAX_EPOLL_EVENTS];
-		int nfds, eventfd, i, bytes;
+		int nfds, i;
 
 		dprintf(STDOUT_FILENO, "pdx_irc> ");
 

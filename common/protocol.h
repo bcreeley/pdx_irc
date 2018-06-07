@@ -65,10 +65,11 @@ struct message {
 #define RESP_MEMORY_ALLOC		BIT(8)
 #define RESP_CANNOT_ADD_CHANNEL		BIT(9)
 #define RESP_CANNOT_ADD_USER_TO_CHANNEL	BIT(10)
+#define RESP_STILL_CHANNELS_REMAINING	BIT(11)
+#define RESP_DONE_SENDING_CHANNELS	BIT(12)
 /* BIT(31) is the largest define with resposne being a 32-bit value */
 	uint32_t response;
-	uint32_t length;	/* Only used for LIST_USERS/LIST_CHANNELS */
-
+	uint8_t list_key;	/* Only used for list_channels */
 	union {
 		struct {
 			char username[USER_NAME_MAX_LEN];
@@ -87,6 +88,10 @@ struct message {
 			char channel_name[CHANNEL_NAME_MAX_LEN];
 			char text[CHAT_MSG_MAX_LEN];
 		} chat;
+		struct {
+			char src_user[USER_NAME_MAX_LEN];
+			char channel_name[CHANNEL_NAME_MAX_LEN];
+		} list_channels;
 	};
 };
 #define MSG_SIZE (sizeof(struct message))

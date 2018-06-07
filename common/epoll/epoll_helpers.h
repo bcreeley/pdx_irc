@@ -13,6 +13,6 @@ int create_epoll_manager(int *epollfd);
 int add_epoll_member(int epollfd, int memberfd, uint32_t subscribe_events);
 int rm_epoll_member(int epollfd, int memberfd);
 int accept_new_epoll_member(int epollfd, int listenfd);
-int debug_print_epoll_event(int eventfd, uint32_t event_mask);
+void debug_print_epoll_event(int eventfd, uint32_t event_mask);
 
 #endif /* _EPOLL_HELPERS_H */

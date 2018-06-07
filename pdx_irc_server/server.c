@@ -269,6 +269,13 @@ static void build_response_msg(struct message *send_msg, struct message *recv_ms
 	}
 }
 
+static int handle_list_channels_msg(int srcfd, struct message *msg)
+{
+	for_each_list_node(channel_list_head) {
+
+	}
+}
+
 static void handle_recv_msg(int epollfd, int srcfd)
 {
 	struct message *recv_msg, *send_msg;

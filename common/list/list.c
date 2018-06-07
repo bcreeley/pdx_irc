@@ -128,7 +128,7 @@ bool list_contains(struct list_node *head, void *data,
 	if (!data)
 		return false;
 
-	for (head; head != NULL; head = head->next)
+	for_each_list_node(head)
 		if (is_equal(head->data, data))
 			return true;
 
@@ -151,7 +151,7 @@ void *get_list_node_data(struct list_node *head, void *data,
 	if (!data)
 		return NULL;
 
-	for (head; head != NULL; head = head->next)
+	for_each_list_node(head)
 		if (is_equal(head->data, data))
 			return head->data;
 

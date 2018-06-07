@@ -1,6 +1,8 @@
 # Makefile for pdx irc server
 # Author: Brett Creeley
 
+CFLAGS+=-g -Wall -Werror
+
 COMMON_DIR = ../common
 LIST_DIR = $(COMMON_DIR)/list
 EPOLL_DIR = $(COMMON_DIR)/epoll
