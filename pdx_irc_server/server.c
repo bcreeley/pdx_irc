@@ -92,9 +92,16 @@ static uint32_t handle_join_msg(int srcfd, struct message *msg)
 	       msg->join.channel_name, msg->join.src_user);
 
 	channel = get_channel(msg->join.channel_name);
-	/* Add channel if it doesn't exist already */
-	if (!channel && add_channel(&channel_list_head, msg->join.channel_name))
-		return RESP_CANNOT_ADD_CHANNEL;
+	/* Add channel if it doesn't exist already and get the refernce to the
+	 * channel
+	 * TODO: make add_channel return a pointer to the added channel!!! */
+	if (!channel) {
+		if (add_channel(&channel_list_head, msg->join.channel_name))
+			return RESP_CANNOT_ADD_CHANNEL;
+		channel = get_channel(msg->join.channel_name);
+		if (!channel)
+			return RESP_CANNOT_FIND_CHANNEL;
+	}
 
 	user = calloc(1, sizeof(*user));
 	if (!user) {
@@ -119,14 +126,6 @@ static uint32_t handle_join_msg(int srcfd, struct message *msg)
 	}
 
 	add_node->data = user;
-
-	channel = get_channel(msg->join.channel_name);
-	if (!channel) {
-		free(user);
-		free(add_node);
-		return RESP_INVALID_CHANNEL_NAME;
-	}
-
 	if (add_list_node(&channel->user_list_head, add_node)) {
 		printf("Failed to add user node\n");
 		free(user);

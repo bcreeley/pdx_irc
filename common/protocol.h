@@ -68,6 +68,7 @@ struct message {
 #define RESP_STILL_CHANNELS_REMAINING	BIT(11)
 #define RESP_DONE_SENDING_CHANNELS	BIT(12)
 #define RESP_LIST_CHANNELS_IN_PROGRESS	BIT(13)
+#define RESP_CANNOT_FIND_CHANNEL	BIT(14)
 /* BIT(31) is the largest define with resposne being a 32-bit value */
 	uint32_t response;
 	union {
