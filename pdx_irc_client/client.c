@@ -22,6 +22,9 @@ struct list_node *channel_list_head = NULL;
 
 #define MAX_EPOLL_EVENTS	10
 #define MAX_CMDLINE_INPUT	1024
+
+#define MIN(a,b) (a < b ? a : b)
+
 /**
  * connect_to_server - attempt to connect to the irc server
  * @sockfd: pointer to the socket file descriptor that is populated on success
@@ -54,9 +57,223 @@ int connect_to_server(int *sockfd)
 	return 0;
 }
 
+static void print_usage()
+{
+	printf("\nAvailable Commands:\n"
+	       "\t#JOIN  /<username> /<channel_name>\n"
+	       "\t#LEAVE /<username> /<channel_name>\n"
+	       "\t#CHAT  /<username> /<channel_name> /<chat_message>\n"
+	       "\t#LIST_CHANNELS /<username>\n"
+	       "\nMaximum Lengths:\n"
+	       "\tusername: %d characters\n"
+	       "\tchannel_name: %d characters\n"
+	       "\tchat_message: %d characters\n\n", USER_NAME_MAX_LEN-1,
+	       CHANNEL_NAME_MAX_LEN-1, CHAT_MSG_MAX_LEN-1);
+}
+
+
+static struct message *join_input(char *input)
+{
+	struct message *msg;
+	char *prev, *next;
+	int len;
+
+	msg = calloc(1, sizeof(*msg));
+	if (!msg) {
+		perror("calloc");
+		return NULL;
+	}
+
+	/* Find the start of username */
+	prev = strstr(input, "/");
+	if (!prev)
+		goto free_msg;
+	/* Don't want "/" as part of the username */
+	++prev;
+
+	/* Find the start of channel_name */
+	next = strstr(prev, "/");
+	if (!next)
+		goto free_msg;
+
+	len = MIN(USER_NAME_MAX_LEN-1, next-prev);
+	strncpy(msg->join.src_user, prev, len);
+	msg->join.src_user[len] = '\0';
+
+	/* Don't want "/" as part of the channel_name */
+	prev = ++next;
+	/* Find the end of channel_name */
+	next = strstr(prev, "\n");
+	if (!next)
+		goto free_msg;
+
+	len = MIN(CHANNEL_NAME_MAX_LEN-1, next-prev);
+	strncpy(msg->join.channel_name, prev, len);
+	msg->join.channel_name[len] = '\0';
+
+	msg->type = JOIN;
+
+	printf("src_user: %s channel_name: %s\n", msg->join.src_user, msg->join.channel_name);
+
+	return msg;
+
+free_msg:
+	printf("Error parsing %s\n", __FUNCTION__);
+	free(msg);
+	return NULL;
+}
+
+static struct message *leave_input(char *input)
+{
+	struct message *msg;
+	char *prev, *next;
+	int len;
+
+	msg = calloc(1, sizeof(*msg));
+	if (!msg) {
+		perror("calloc");
+		return NULL;
+	}
+
+	/* Find the start of username */
+	prev = strstr(input, "/");
+	if (!prev)
+		goto free_msg;
+	/* Don't want "/" as part of the username */
+	++prev;
+
+	/* Find the start of channel_name */
+	next = strstr(prev, "/");
+	if (!next)
+		goto free_msg;
+
+	len = MIN(USER_NAME_MAX_LEN-1, next-prev);
+	strncpy(msg->leave.src_user, prev, len);
+	msg->leave.src_user[len] = '\0';
+
+	/* Don't want "/" as part of the channel_name */
+	prev = ++next;
+	/* Find the end of channel_name */
+	next = strstr(prev, "\n");
+	if (!next)
+		goto free_msg;
+
+	len = MIN(CHANNEL_NAME_MAX_LEN-1, next-prev);
+	strncpy(msg->leave.channel_name, prev, len);
+	msg->leave.channel_name[len] = '\0';
+
+	msg->type = LEAVE;
+	printf("src_user: %s channel_name: %s\n", msg->leave.src_user, msg->leave.channel_name);
+
+	return msg;
+
+free_msg:
+	printf("Error parsing %s\n", __FUNCTION__);
+	free(msg);
+	return NULL;
+}
+
+static struct message *chat_input(char *input)
+{
+	struct message *msg;
+	char *prev, *next;
+	int len;
+
+	msg = calloc(1, sizeof(*msg));
+	if (!msg) {
+		perror("calloc");
+		return NULL;
+	}
+
+	/* Find the start of username */
+	prev = strstr(input, "/");
+	if (!prev)
+		goto free_msg;
+	/* Don't want "/" as part of the username */
+	++prev;
+
+	/* Find the start of channel_name */
+	next = strstr(prev, "/");
+	if (!next)
+		goto free_msg;
+
+	len = MIN(USER_NAME_MAX_LEN-1, next-prev);
+	strncpy(msg->chat.src_user, prev, len);
+	msg->chat.src_user[len] = '\0';
+
+	/* Don't want "/" as part of the channel_name */
+	prev = ++next;
+	/* Find the end of channel_name */
+	next = strstr(prev, "/");
+	if (!next)
+		goto free_msg;
+
+	len = MIN(CHANNEL_NAME_MAX_LEN-1, next-prev);
+	strncpy(msg->chat.channel_name, prev, len);
+	msg->chat.channel_name[len] = '\0';
+
+	/* Don't want "/" as part of the chat text */
+	prev = ++next;
+	next = strstr(prev, "\n");
+	if (!next)
+		goto free_msg;
+
+	len = MIN(CHAT_MSG_MAX_LEN-1, next-prev);
+	strncpy(msg->chat.text, prev, len);
+	msg->chat.text[len] = '\0';
+
+	msg->type = CHAT;
+	printf("src_user: %s channel_name: %s chat_msg: (%s)\n", msg->chat.src_user,
+	       msg->chat.channel_name, msg->chat.text);
+
+	return msg;
+
+free_msg:
+	printf("Error parsing %s\n", __FUNCTION__);
+	free(msg);
+	return NULL;
+}
+
+static struct message *list_channels_input(char *input)
+{
+	struct message *msg;
+	char *prev, *next;
+	int len;
+
+	msg = calloc(1, sizeof(*msg));
+	if (!msg) {
+		perror("calloc");
+		return NULL;
+	}
+
+	/* Find the start of username */
+	prev = strstr(input, "/");
+	if (!prev)
+		goto free_msg;
+	/* Don't want "/" as part of the username */
+	++prev;
+
+	next = strstr(prev, "\n");
+	if (!next)
+		goto free_msg;
+
+	len = MIN(USER_NAME_MAX_LEN-1, next-prev);
+	strncpy(msg->list_channels.src_user, prev, len);
+	msg->list_channels.src_user[len] = '\0';
+
+	msg->type = LIST_CHANNELS;
+
+	return msg;
+
+free_msg:
+	printf("Error parsing %s\n", __FUNCTION__);
+	free(msg);
+	return NULL;
+}
+
 static struct message *parse_user_input()
 {
-	struct message *send_msg;
+	struct message *send_msg = NULL;
 	char *input;
 	int bytes;
 
@@ -73,59 +290,18 @@ static struct message *parse_user_input()
 		return NULL;
 	}
 
-	send_msg = (struct message *)calloc(1, sizeof(*send_msg));
-	if (!send_msg) {
-		perror("calloc");
-		free(input);
-		return NULL;
-	}
-
-	if (strcasestr(input, ":JOINB") != NULL) {
-		send_msg->type = JOIN;
-		strcpy(send_msg->join.src_user, "Bquigs");
-		strcpy(send_msg->join.channel_name, "LinuxFTW!");
-	} else if (strcasestr(input, ":JOINA") != NULL) {
-		send_msg->type = JOIN;
-		strcpy(send_msg->join.src_user, "Ann");
-		strcpy(send_msg->join.channel_name, "LinuxFTW!");
-	} else if (strcasestr(input, ":JOIN1") != NULL) {
-		send_msg->type = JOIN;
-		strcpy(send_msg->join.src_user, "Ann");
-		strcpy(send_msg->join.channel_name, "Channel1!");
-	} else if (strcasestr(input, ":JOIN2") != NULL) {
-		send_msg->type = JOIN;
-		strcpy(send_msg->join.src_user, "Ann");
-		strcpy(send_msg->join.channel_name, "Channel2!");
-	} else if (strcasestr(input, ":CHATB") != NULL) {
-		send_msg->type = CHAT;
-		strcpy(send_msg->chat.src_user, "Bquigs");
-		strcpy(send_msg->chat.channel_name, "LinuxFTW!");
-		strcpy(send_msg->chat.text, "Hello Ann!");
-	} else if (strcasestr(input, ":CHATA") != NULL) {
-		send_msg->type = CHAT;
-		strcpy(send_msg->chat.src_user, "Ann");
-		strcpy(send_msg->chat.channel_name, "LinuxFTW!");
-		strcpy(send_msg->chat.text, "Hello Bquigs!");
-	} else if (strcasestr(input, ":LEAVEA") != NULL) {
-		send_msg->type = LEAVE;
-		strcpy(send_msg->leave.src_user, "Ann");
-		strcpy(send_msg->leave.channel_name, "LinuxFTW!");
-	} else if (strcasestr(input, ":LEAVEA") != NULL) {
-		send_msg->type = LEAVE;
-		strcpy(send_msg->leave.src_user, "Bquigs");
-		strcpy(send_msg->leave.channel_name, "LinuxFTW!");
-	} else if (strcasestr(input, ":LIST CHANNELS") != NULL) {
-		send_msg->type = LIST_CHANNELS;
-		strcpy(send_msg->list_channels.src_user, "Bquigs");
-		send_msg->list_channels.list_key = 1;
-	} else {
-		printf("Help:\n"
-			"\t#JOIN  /<username> /<channel_name>\n"
-			"\t#LEAVE /<username> /<channel_name>\n"
-			"\t#CHAT  /<username> /<channel_name> /<chat_message>\n"
-			"\t#LIST_CHANNELS /<username>\n");
-		return NULL;
-	}
+	if (strcasestr(input, "help"))
+		print_usage();
+	else if (strcasestr(input, "#JOIN"))
+		send_msg = join_input(input);
+	else if (strcasestr(input, "#LEAVE"))
+		send_msg = leave_input(input);
+	else if (strcasestr(input, "#CHAT"))
+		send_msg = chat_input(input);
+	else if (strcasestr(input, "#LIST_CHANNELS"))
+		send_msg = list_channels_input(input);
+	else
+		printf("Unsupported message type");
 
 	free(input);
 
@@ -240,7 +416,8 @@ int main(int argc, char *argv[])
 					int bytes;
 
 					send_msg = parse_user_input();
-					if (!send_msg)
+					if (!send_msg ||
+					    send_msg->type == MSG_TYPE_INVALID)
 						continue;
 
 					bytes = send(sockfd, send_msg, MSG_SIZE, 0);

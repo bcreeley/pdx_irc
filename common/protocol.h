@@ -29,7 +29,7 @@
 
 #define USER_NAME_MAX_LEN	16
 #define PW_MAX_LEN		16
-#define CHANNEL_NAME_MAX_LEN	32
+#define CHANNEL_NAME_MAX_LEN	16
 #define CHAT_MSG_MAX_LEN	256
 
 enum message_type {
