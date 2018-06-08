@@ -167,6 +167,7 @@ static uint32_t handle_chat_msg(int srcfd, struct message *msg)
 		if (is_equal_users(&user, tmp->data))
 			continue;
 
+		msg->response = RESP_SUCCESS;
 		bytes = send(((struct user *)(tmp->data))->fd, msg, MSG_SIZE, 0);
 		if (bytes != MSG_SIZE) {
 			perror("send");
@@ -235,6 +236,12 @@ static void build_response_msg(struct message *send_msg, struct message *recv_ms
 		strncpy(send_msg->chat.text, recv_msg->chat.text,
 			CHAT_MSG_MAX_LEN);
 		break;
+	case LIST_CHANNELS:
+		strncpy(send_msg->list_channels.src_user, recv_msg->chat.src_user,
+			USER_NAME_MAX_LEN);
+		send_msg->list_channels.list_key =
+			recv_msg->list_channels.list_key;
+		break;
 	default:
 		printf("Invalid/unimplemented message type %s\n",
 		       msg_type_to_str(recv_msg->type));
@@ -266,6 +273,7 @@ static uint32_t handle_list_channels_msg(int srcfd, struct message *recv_msg)
 		strncpy(send_msg->list_channels.channel_name, c->name,
 			CHANNEL_NAME_MAX_LEN);
 		send_msg->list_channels.list_key = recv_msg->list_channels.list_key;
+		send_msg->type = recv_msg->type;
 		send_msg->response = RESP_LIST_CHANNELS_IN_PROGRESS;
 
 		bytes = send(srcfd, send_msg, MSG_SIZE, 0);
@@ -323,6 +331,7 @@ static void handle_recv_msg(int epollfd, int srcfd)
 			/* Server sends RESP_SUCCESS with last channel_name */
 			send_msg->response = handle_list_channels_msg(srcfd,
 								      recv_msg);
+			break;
 		default:
 			/* Invalid or unimplemented message types */
 			printf("Invalid/unimplemented message type %s\n",

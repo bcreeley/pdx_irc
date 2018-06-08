@@ -146,6 +146,72 @@ struct list_node *rm_list_node(struct list_node **head, void *data,
 	return NULL;
 }
 
+void del_list(struct list_node **head, void (*del_data)(void **d))
+{
+	struct list_node *tmp = *head;
+
+	if (!tmp)
+		return;
+
+	del_list(&tmp->next, del_data);
+
+	del_data(&tmp->data);
+	free(tmp);
+	tmp = NULL;
+}
+
+void del_user_data(void **d)
+{
+	struct user *u = *d;
+
+	if (!u)
+		return;
+
+	free(u);
+	u = NULL;
+}
+
+void del_user_list(struct list_node **head)
+{
+	del_list(head, del_user_data);
+}
+
+void del_channel_data(void **d)
+{
+	struct channel *c = *d;
+
+	if (!c)
+		return;
+
+	del_user_list(&c->user_list_head);
+}
+
+void del_channel_list(struct list_node **head)
+{
+	del_list(head, del_channel_data);
+}
+
+void print_list(struct list_node *head, void (*print_data)(void *d))
+{
+	for_each_list_node(head)
+		print_data(head->data);
+}
+
+void print_channel(void *d)
+{
+	struct channel *c = d;
+
+	if (!c)
+		return;
+
+	printf("%s\n", c->name);
+}
+
+void print_channel_list(struct list_node *head)
+{
+	print_list(head, print_channel);
+}
+
 /**
  * list_contains - checks if the list has the data sent in as an argument
  *

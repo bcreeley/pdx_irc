@@ -11,17 +11,26 @@ struct channel {
 	struct list_node *user_list_head;
 };
 
-int add_channel(struct list_node **head, char *channel_name);
-bool is_equal_channels(void *c1, void *c2);
-
-#if 0
-struct channel *get_channel(struct list_node *head, char *channel_name);
-#endif
-
 struct user {
 	char name[USER_NAME_MAX_LEN];
 	int fd;
 };
+
+void print_channel(void *d);
+void print_channel_list(struct list_node *head);
+
+void del_user_list(struct list_node **head);
+void del_user_data(void **u);
+void del_channel_list(struct list_node **head);
+void del_channel_data(void **c);
+
+void print_list(struct list_node *head, void (*print_data)(void *d));
+void del_list(struct list_node  **head, void (*del_data)(void **d));
+
+int add_channel(struct list_node **head, char *channel_name);
+bool is_equal_channels(void *c1, void *c2);
+
+
 
 bool is_equal_users(void *u1, void *u2);
 
@@ -29,6 +38,8 @@ struct list_node {
 	struct list_node *next;
 	void *data;
 };
+
+#define for_each_list_node(n) for (; n != NULL; n = n->next)
 
 int add_list_node(struct list_node **head, struct list_node *add);
 

@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include "../common/epoll/epoll_helpers.h"
 #include "../common/debug/debug.h"
+#include "../common/list/list.h"
 
 /* User can only request for channel list once before this list is deleted */
 struct list_node *channel_list_head = NULL;
@@ -116,6 +117,7 @@ static struct message *parse_user_input()
 	} else if (strcasestr(input, ":LIST CHANNELS") != NULL) {
 		send_msg->type = LIST_CHANNELS;
 		strcpy(send_msg->list_channels.src_user, "Bquigs");
+		send_msg->list_channels.list_key = 1;
 	} else {
 		printf("Help:\n");
 		printf("\t:JOIN  <channel_name>\n");
@@ -159,15 +161,23 @@ static int handle_recv_msg(int recvfd)
 		      	       recv_msg->chat.src_user, recv_msg->chat.text);
 
 		break;
-#if 0
 	case LIST_CHANNELS:
 		printf("recv_msg type %s response %s\n",
 		       msg_type_to_str(recv_msg->type),
 		       resp_type_to_str(recv_msg->response));
 
-		if (recv_msg->resp & RESP_LIST_CHANNELS_IN_PROGRESS) {
-			ret = add_channel_to_list(recv_msg->list_channels.channel_name);
-#endif
+		if (recv_msg->response & RESP_LIST_CHANNELS_IN_PROGRESS) {
+			printf("adding channel %s to list\n", recv_msg->list_channels.channel_name);
+			ret = add_channel(&channel_list_head,
+					  recv_msg->list_channels.channel_name);
+		} else if (recv_msg->response & RESP_DONE_SENDING_CHANNELS) {
+			printf("Channel List:\n");
+			print_channel_list(channel_list_head);
+		} else {
+			del_channel_list(&channel_list_head);
+		}
+
+		break;
 	default:
 		printf("Unhandled receive message %s with response %s\n",
 		       msg_type_to_str(recv_msg->type),
