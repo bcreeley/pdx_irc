@@ -310,7 +310,6 @@ static void handle_recv_msg(int epollfd, int srcfd)
 	if (bytes != MSG_SIZE) {
 		send_msg->type = ERROR;
 		send_msg->response = RESP_RECV_MSG_FAILED;
-		printf("%s:%d ERROR!\n", __func__, __LINE__);
 		goto send_response;
 	}
 
@@ -319,16 +318,12 @@ static void handle_recv_msg(int epollfd, int srcfd)
 			send_msg->response = handle_join_msg(srcfd, recv_msg);
 			break;
 		case LEAVE:
-			printf("User: %s wants to leave channel: %s\n",
-			       recv_msg->leave.src_user,
-			       recv_msg->leave.channel_name);
 			send_msg->response = handle_leave_msg(srcfd, recv_msg);
 			break;
 		case CHAT:
 			send_msg->response = handle_chat_msg(srcfd, recv_msg);
 			break;
 		case LIST_CHANNELS:
-			/* Server sends RESP_SUCCESS with last channel_name */
 			send_msg->response = handle_list_channels_msg(srcfd,
 								      recv_msg);
 			break;
