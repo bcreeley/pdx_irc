@@ -173,9 +173,12 @@ static int handle_recv_msg(int recvfd)
 		} else if (recv_msg->response & RESP_DONE_SENDING_CHANNELS) {
 			printf("Channel List:\n");
 			print_channel_list(channel_list_head);
-		} else {
 			del_channel_list(&channel_list_head);
+		} else {
+			printf("Invalid response %s from server\n",
+			       resp_type_to_str(recv_msg->response));
 		}
+
 
 		break;
 	default:
