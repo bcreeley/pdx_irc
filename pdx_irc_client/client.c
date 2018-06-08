@@ -119,10 +119,11 @@ static struct message *parse_user_input()
 		strcpy(send_msg->list_channels.src_user, "Bquigs");
 		send_msg->list_channels.list_key = 1;
 	} else {
-		printf("Help:\n");
-		printf("\t:JOIN  <channel_name>\n");
-		printf("\t:LEAVE <channel_name>\n");
-		printf("\t:CHAT  <channel_name> <chat message>\n");
+		printf("Help:\n"
+			"\t#JOIN  /<username> /<channel_name>\n"
+			"\t#LEAVE /<username> /<channel_name>\n"
+			"\t#CHAT  /<username> /<channel_name> /<chat_message>\n"
+			"\t#LIST_CHANNELS /<username>\n");
 		return NULL;
 	}
 
