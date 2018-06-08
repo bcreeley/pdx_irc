@@ -18,7 +18,8 @@
 #include "../common/list/list.h"
 
 /* User can only request for channel list once before this list is deleted */
-struct list_node *channel_list_head = NULL;
+static struct list_node *channel_list_head = NULL;
+static bool list_channels_active = false;
 
 #define MAX_EPOLL_EVENTS	10
 #define MAX_CMDLINE_INPUT	1024
@@ -266,6 +267,8 @@ static struct message *list_channels_input(char *input)
 	return msg;
 
 free_msg:
+	/* Allow another request to LIST_CHANNELS */
+	list_channels_active = false;
 	printf("Error parsing %s\n", __FUNCTION__);
 	free(msg);
 	return NULL;
@@ -298,7 +301,7 @@ static struct message *parse_user_input()
 		send_msg = leave_input(input);
 	else if (strcasestr(input, "#CHAT"))
 		send_msg = chat_input(input);
-	else if (strcasestr(input, "#LIST_CHANNELS"))
+	else if (strcasestr(input, "#LIST_CHANNELS") && !list_channels_active)
 		send_msg = list_channels_input(input);
 	else
 		printf("Unsupported message type");
@@ -321,7 +324,7 @@ static int handle_recv_msg(int recvfd)
 	}
 
 	bytes = recv(recvfd, recv_msg, MSG_SIZE, MSG_WAITALL);
-	if (bytes < 0) {
+	if (bytes != MSG_SIZE) {
 		perror("recv");
 		ret = -1;
 		goto out;
@@ -329,28 +332,25 @@ static int handle_recv_msg(int recvfd)
 
 	switch (recv_msg->type) {
 	case CHAT:
-		printf("recv_msg type %s response %s\n",
-		       msg_type_to_str(recv_msg->type),
-		       resp_type_to_str(recv_msg->response));
-
 		if (recv_msg->response == RESP_SUCCESS)
 			printf("(%s) %s: %s\n", recv_msg->chat.channel_name,
 		      	       recv_msg->chat.src_user, recv_msg->chat.text);
 
 		break;
 	case LIST_CHANNELS:
-		printf("recv_msg type %s response %s\n",
-		       msg_type_to_str(recv_msg->type),
-		       resp_type_to_str(recv_msg->response));
-
 		if (recv_msg->response & RESP_LIST_CHANNELS_IN_PROGRESS) {
 			printf("adding channel %s to list\n", recv_msg->list_channels.channel_name);
 			ret = add_channel(&channel_list_head,
 					  recv_msg->list_channels.channel_name);
+			if (ret)
+				printf("Failed to add channel!\n");
+
 		} else if (recv_msg->response & RESP_DONE_SENDING_CHANNELS) {
 			printf("Channel List:\n");
 			print_channel_list(channel_list_head);
 			del_channel_list(&channel_list_head);
+			/* Allow another request to LIST_CHANNELS */
+			list_channels_active = false;
 		} else {
 			printf("Invalid response %s from server\n",
 			       resp_type_to_str(recv_msg->response));

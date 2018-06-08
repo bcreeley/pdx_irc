@@ -31,7 +31,7 @@ int add_channel(struct list_node **head, char *channel_name)
 			free(c);
 			free(add_node);
 			return -1;
-	}
+		}
 
 	return 0;
 }
@@ -97,8 +97,8 @@ int add_list_node(struct list_node **head, struct list_node *add)
 		add->next = NULL;
 		*head = add;
 	} else {
-		add->next = tmp->next;
-		tmp->next = add;
+		add->next = (*head)->next;
+		(*head)->next = add;
 	}
 
 	return 0;
@@ -150,14 +150,15 @@ void del_list(struct list_node **head, void (*del_data)(void **d))
 {
 	struct list_node *tmp = *head;
 
-	if (!tmp)
-		return;
+	while (tmp != NULL) {
+		tmp = tmp->next;
 
-	del_list(&tmp->next, del_data);
+		del_data(&(*head)->data);
+		free(*head);
+		*head = tmp;
+	}
 
-	del_data(&tmp->data);
-	free(tmp);
-	tmp = NULL;
+	*head = NULL;
 }
 
 void del_user_data(void **d)
@@ -193,8 +194,10 @@ void del_channel_list(struct list_node **head)
 
 void print_list(struct list_node *head, void (*print_data)(void *d))
 {
-	for_each_list_node(head)
-		print_data(head->data);
+	struct list_node *tmp;
+
+	for (tmp = head; tmp != NULL; tmp = tmp->next)
+		print_data(tmp->data);
 }
 
 void print_channel(void *d)

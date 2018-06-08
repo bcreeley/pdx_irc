@@ -272,6 +272,7 @@ static uint32_t handle_list_channels_msg(int srcfd, struct message *recv_msg)
 			recv_msg->list_channels.src_user, USER_NAME_MAX_LEN);
 		strncpy(send_msg->list_channels.channel_name, c->name,
 			CHANNEL_NAME_MAX_LEN);
+		printf("list channels: channel %s c->name %s\n", send_msg->list_channels.channel_name, c->name);
 		send_msg->list_channels.list_key = recv_msg->list_channels.list_key;
 		send_msg->type = recv_msg->type;
 		send_msg->response = RESP_LIST_CHANNELS_IN_PROGRESS;

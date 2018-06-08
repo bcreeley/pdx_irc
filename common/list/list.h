@@ -39,8 +39,6 @@ struct list_node {
 	void *data;
 };
 
-#define for_each_list_node(n) for (; n != NULL; n = n->next)
-
 int add_list_node(struct list_node **head, struct list_node *add);
 
 struct list_node *
