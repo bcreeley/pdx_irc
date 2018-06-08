@@ -6,79 +6,72 @@
 #include "debug.h"
 #include "../protocol.h"
 
-#define RESP_INVALID_STR 			"RESP_INVALID"
-#define RESP_SUCCESS_STR 			"RESP_SUCCESS"
-#define RESP_INVALID_LOGIN_STR 			"RESP_INVALID_LOGIN"
-#define RESP_INVALID_CHANNEL_NAME_STR 		"RESP_INVALID_CHANNEL_NAME"
-#define RESP_NOT_IN_CHANNEL_STR 		"RESP_NOT_IN_CHANNEL"
-#define RESP_ALREADY_IN_CHANNEL_STR		"RESP_ALREADY_IN_CHANNEL"
-#define RESP_SERVER_HAS_NO_CHANNELS_STR		"RESP_SERVER_HAS_NO_CHANNELS"
-#define RESP_CANNOT_GET_USERS_STR		"RESP_CANNOT_GET_USERS_STR"
-#define RESP_RECV_MSG_FAILED_STR		"RESP_RECV_MSG_FAILED"
-#define RESP_MEMORY_ALLOC_STR			"RESP_MEMORY_ALLOC"
-#define RESP_CANNOT_ADD_CHANNEL_STR		"RESP_CANNOT_ADD_CHANNEL"
-#define RESP_CANNOT_ADD_USER_TO_CHANNEL_STR	"RESP_CANNOT_ADD_USER_TO_CHANNEL"
+struct resp_type_strings {
+	uint32_t type;
+	const char *string;
+};
 
-const char *resp_type_to_str(uint32_t resp)
+struct resp_type_strings resp_type_str_arr[] = {
+	{RESP_INVALID,				"RESP_INVALID"},
+	{RESP_SUCCESS,				"RESP_SUCCESS"},
+	{RESP_INVALID_LOGIN,			"RESP_INVALID_LOGIN"},
+	{RESP_INVALID_CHANNEL_NAME,		"RESP_INVALID_CHANNEL_NAME"},
+	{RESP_NOT_IN_CHANNEL,			"RESP_NOT_IN_CHANNEL"},
+	{RESP_ALREADY_IN_CHANNEL,		"RESP_ALREADY_IN_CHANNEL"},
+	{RESP_SERVER_HAS_NO_CHANNELS,		"RESP_SERVER_HAS_NO_CHANNELS"},
+	{RESP_CANNOT_GET_USERS,			"RESP_CANNOT_GET_USERS"},
+	{RESP_RECV_MSG_FAILED,			"RESP_RECV_MSG_FAILED"},
+	{RESP_MEMORY_ALLOC,			"RESP_MEMORY_ALLOC"},
+	{RESP_CANNOT_ADD_CHANNEL,		"RESP_CANNOT_ADD_CHANNEL"},
+	{RESP_CANNOT_ADD_USER_TO_CHANNEL,	"RESP_CANNOT_ADD_USER_TO_CHANNEL"},
+	{RESP_DONE_SENDING_CHANNELS,		"RESP_DONE_SENDING_CHANNELS"},
+	{RESP_LIST_CHANNELS_IN_PROGRESS,	"RESP_LIST_CHANNELS_IN_PROGRESS"},
+	{RESP_CANNOT_FIND_CHANNEL,		"RESP_CANNOT_FIND_CHANNEL"},
+	{RESP_CANNOT_LIST_CHANNELS,		"RESP_CANNOT_LIST_CHANNELS"},
+};
+
+#define RESP_MSG_ARR_SIZE sizeof(resp_type_str_arr)
+
+
+const char *resp_type_to_str(uint32_t resp_type)
 {
-	switch (resp) {
-	case RESP_INVALID:
-		return RESP_INVALID_STR;
-	case RESP_SUCCESS:
-		return RESP_SUCCESS_STR;
-	case RESP_INVALID_LOGIN:
-		return RESP_INVALID_LOGIN_STR;
-	case RESP_INVALID_CHANNEL_NAME:
-		return RESP_INVALID_CHANNEL_NAME_STR;
-	case RESP_NOT_IN_CHANNEL:
-		return RESP_NOT_IN_CHANNEL_STR;
-	case RESP_ALREADY_IN_CHANNEL:
-		return RESP_ALREADY_IN_CHANNEL_STR;
-	case RESP_SERVER_HAS_NO_CHANNELS:
-		return RESP_SERVER_HAS_NO_CHANNELS_STR;
-	case RESP_CANNOT_GET_USERS:
-		return RESP_CANNOT_GET_USERS_STR;
-	case RESP_RECV_MSG_FAILED:
-		return RESP_RECV_MSG_FAILED_STR;
-	case RESP_MEMORY_ALLOC:
-		return RESP_MEMORY_ALLOC_STR;
-	case RESP_CANNOT_ADD_CHANNEL:
-		return RESP_CANNOT_ADD_CHANNEL_STR;
-	case RESP_CANNOT_ADD_USER_TO_CHANNEL:
-		return RESP_CANNOT_ADD_USER_TO_CHANNEL_STR;
-	default:
-		return "Invalid Response Message";
+	int i;
+
+	for (i = 0; i < RESP_MSG_ARR_SIZE; ++i) {
+		if (resp_type == resp_type_str_arr[i].type)
+			return resp_type_str_arr[i].string;
 	}
+
+	return "Unknown response type";
 }
 
-#define MSG_TYPE_INVALID_STR		"MSG_TYPE_INVALID"
-#define MSG_TYPE_ERROR_STR		"MSG_TYPE_ERROR"
-#define MSG_TYPE_LOGIN_STR		"MSG_TYPE_LOGIN"
-#define MSG_TYPE_JOIN_STR		"MSG_TYPE_JOIN"
-#define MSG_TYPE_LEAVE_STR		"MSG_TYPE_LEAVE"
-#define MSG_TYPE_CHAT_STR		"MSG_TYPE_CHAT"
-#define MSG_TYPE_LIST_CHANNELS_STR	"MSG_TYPE_LIST_CHANNELS"
-#define MSG_TYPE_LIST_USERS_STR		"MSG_TYPE_LIST_USERS"
+struct msg_type_strings {
+	uint8_t type;
+	const char *string;
+};
 
-const char *msg_type_to_str(uint8_t type)
-{ switch (type) {
-	case MSG_TYPE_INVALID:
-		return MSG_TYPE_INVALID_STR;
-	case ERROR:
-		return MSG_TYPE_ERROR_STR;
-	case LOGIN:
-		return MSG_TYPE_LOGIN_STR;
-	case JOIN:
-		return MSG_TYPE_JOIN_STR;
-	case LEAVE:
-		return MSG_TYPE_LEAVE_STR;
-	case CHAT:
-		return MSG_TYPE_CHAT_STR;
-	case LIST_CHANNELS:
-		return MSG_TYPE_LIST_CHANNELS_STR;
-	case LIST_USERS:
-		return MSG_TYPE_LIST_USERS_STR;
-	default:
-		return "Invalid Message Type";
+static struct msg_type_strings msg_type_str_arr[] = {
+	{MSG_TYPE_INVALID,	"MSG_TYPE_INVALID"},
+	{ERROR,			"MSG_TYPE_ERROR"},
+	{LOGIN,			"MSG_TYPE_LOGIN"},
+	{JOIN,			"MSG_TYPE_JOIN"},
+	{LEAVE,			"MSG_TYPE_LEAVE"},
+	{CHAT,			"MSG_TYPE_CHAT"},
+	{LIST_CHANNELS,		"MSG_TYPE_LIST_CHANNELS"},
+	{LIST_USERS,		"MSG_TYPE_LIST_USERS"},
+};
+
+#define MSG_TYPE_ARR_SIZE sizeof(msg_type_str_arr)
+
+const char *msg_type_to_str(uint8_t msg_type)
+{
+	int i;
+
+	for (i = 0; i < MSG_TYPE_ARR_SIZE; ++i) {
+		if (msg_type == msg_type_str_arr[i].type)
+			return msg_type_str_arr[i].string;
 	}
+
+	return "Uknown message type";
 }
+
