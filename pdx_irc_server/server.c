@@ -242,17 +242,43 @@ static void build_response_msg(struct message *send_msg, struct message *recv_ms
 	}
 }
 
-#if 0
-/* TODO: Implement this to send list of channels to user */
-static int handle_list_channels_msg(int srcfd, struct message *msg)
+static uint32_t handle_list_channels_msg(int srcfd, struct message *recv_msg)
 {
-	for_each_list_node(channel_list_head) {
+	struct message *send_msg;
+	struct list_node *tmp;
 
+	if (!recv_msg)
+		return RESP_CANNOT_LIST_CHANNELS;
+
+	if (!channel_list_head)
+		return RESP_SERVER_HAS_NO_CHANNELS;
+
+	send_msg = (struct message *)calloc(1, sizeof(*send_msg));
+	if (!send_msg)
+		return RESP_MEMORY_ALLOC;
+
+	for (tmp = channel_list_head; tmp != NULL; tmp = tmp->next) {
+		struct channel *c = tmp->data;
+		int bytes;
+
+		strncpy(send_msg->list_channels.src_user,
+			recv_msg->list_channels.src_user, USER_NAME_MAX_LEN);
+		strncpy(send_msg->list_channels.channel_name, c->name,
+			CHANNEL_NAME_MAX_LEN);
+		send_msg->list_channels.list_key = recv_msg->list_channels.list_key;
+		send_msg->response = RESP_LIST_CHANNELS_IN_PROGRESS;
+
+		bytes = send(srcfd, send_msg, MSG_SIZE, 0);
+		if (bytes != MSG_SIZE) {
+			perror("send");
+			break;
+		}
 	}
 
-	return 0;
+	free(send_msg);
+
+	return RESP_DONE_SENDING_CHANNELS;
 }
-#endif
 
 static void handle_recv_msg(int epollfd, int srcfd)
 {
@@ -293,6 +319,10 @@ static void handle_recv_msg(int epollfd, int srcfd)
 		case CHAT:
 			send_msg->response = handle_chat_msg(srcfd, recv_msg);
 			break;
+		case LIST_CHANNELS:
+			/* Server sends RESP_SUCCESS with last channel_name */
+			send_msg->response = handle_list_channels_msg(srcfd,
+								      recv_msg);
 		default:
 			/* Invalid or unimplemented message types */
 			printf("Invalid/unimplemented message type %s\n",
