@@ -102,7 +102,6 @@
        	<figure>
           <artwork>
 		Message Type   - 1 byte
-		Message Length - 4 bytes
 
 		/* One-Hot Response Codes */
 		RESP_INVALID			0
@@ -113,6 +112,18 @@
 		RESP_ALREADY_IN_CHANNEL		BIT(4)
 		RESP_SERVER_HAS_NO_CHANNELS	BIT(5)
 		RESP_CANNOT_GET_USERS		BIT(6)
+		RESP_RECV_MSG_FAILED		BIT(7)
+		RESP_MEMORY_ALLOC		BIT(8)
+		RESP_CANNOT_ADD_CHANNEL		BIT(9)
+		RESP_CANNOT_ADD_USER_TO_CHANNEL	BIT(10)
+		RESP_DONE_SENDING_CHANNELS	BIT(11)
+		RESP_LIST_CHANNELS_IN_PROGRESS	BIT(12)
+		RESP_CANNOT_FIND_CHANNEL	BIT(13)
+		RESP_CANNOT_LIST_CHANNELS	BIT(14)
+		RESP_LIST_USERS_IN_PROGRESS	BIT(15)
+		RESP_DONE_SENDING_USERS		BIT(16)
+		RESP_CANNOT_LIST_USERS		BIT(17)
+
 		/* Don't add any defines greater than BIT(31) */
 		MAX_MSG_RESP_NUM		BIT(31)
 
@@ -157,26 +168,31 @@
 	<figure>
 	  <artwork>
 		/* payload for LIST_CHANNELS message type */
-		Flat array of channel names delimited by a ":"
+		List Key - 1 byte
+		Source User - 16 bytes
+		Channel Name - 16 bytes
 	  </artwork>
         </figure>
 
 	<figure>
 	  <artwork>
 		/* payload for LIST_USERS message type */
-		Flat array of usernames delimited by a ":"
-            </artwork>
-          </figure>
+		List Key - 1 byte
+		Source User - 16 bytes
+		Channel Name - 16 bytes
+		Username - 16 bytes
+      </artwork>
+    </figure>
 
         <section anchor="Message-Definitions"  title="Message Definitions">
           <t>
             <list style='symbols'>
               <t>Message Type   - 8-bit value holding the message type.</t>
-	      <t>Message Length - 32-bit value holding the length of the entire message.</t>
-	      <t>Response Code  - 32-bit value holding the result of a client request.</t>
-	      <t>Payload        - Size dependent on the payload shown above.</t>
+	      	  <t>Response Code  - 32-bit value holding the result of a client request.</t>
+	     	  <t>Payload        - Size dependent on the payload shown above.</t>
               <t>Source User    - 16-byte username of the client that the message originated from. </t>
               <t>Channel Name   - 16-byte channel name that this message applies to.</t>
+			  <t>Username		- 16-byte username that is used as part of the LIST_USERS message. </t>
               <t>Chat Text      - 256-byte text of a chat message.</t>
             </list>
           </t>
@@ -248,25 +264,29 @@
 		with the payload that was sent from the source client.
 	     </t>
 	     <t>
-		LIST_CHANNELS(client) - The client is requesting the current list of channels from the server. The client should not
-		fill the payload for this request. This request will either return RESP_SUCCESS and a list of the channel names separated
-		by a ":" or a RESP_SERVER_HAS_NO_CHANNELS in the case that no channels have been created.
+		LIST_CHANNELS(client) - The client is requesting the current list of channels from the server. The client will fill the
+		Source user for this request. If the response from the server is RESP_LIST_CHANNELS_IN_PROGRESS then the client knows
+		more channels are being sent. When the cleint receives RESP_LIST_CHANNELS_DONE it knows that all channel names have
+		been sent.
 	      </t>
 	      <t>
 		LIST_CHANNELS(server) - If the server has no channels it will not fill the payload and the resp_code will be
-		RESP_SERVER_HAS_NO_CHANNELS. Otherwise the server will fill the payload with all of the channels separated by
-		a ":" and set the resp_code to RESP_SUCCESS.
+		RESP_SERVER_HAS_NO_CHANNELS. Otherwise the server will send LIST_CHANNELS messages until all channel names
+		have been sent to the requesting client. During the transaction the response code is set to
+		RESP_LIST_CHANNELS_IN_PROGRESS. When all of the channel names have been sent the server will then send
+		one additional LIST_CHANNELS message with the response set to RESP_LIST_CHANNELS_DONE.
+	      </t>
+		  <t>
+		LIST_USERS(client) - The client is requesting the current list of users from a channel on the servrer. The client will fill the
+		Source user and Channel name for this request. If the response from the server is RESP_LIST_USERS_IN_PROGRESS then the client knows
+		more usernames are being sent. When the cleint receives RESP_LIST_USERS_DONE it knows that all usernames have been sent.
 	      </t>
 	      <t>
-		LIST_USERS(client) - The client uses this message to list the users of the channel specified. If the channel does
-		not exist or if the user is not in the channel the server will respond with a resp_code of RESP_CANNOT_GET_USERS.
-		Otherwise the server fills the payload with the channel's users separated by a ":" and sets the resp_code to
-		RESP_SUCCESS.
-	      </t>
-	      <t>
-		LIST_USERS(server) - The server will determine if the channel list specified is valid and return no payload
-		and the resp_code RESP_CANNOT_GET_USERS if the request is invalid. Otherwise the server will fill the payload
-		with the channel's users separated by a ":" and set resp_code to RESP_SUCCESS.
+		LIST_USERS(server) - If the server has no channels or the channel does not exist it will not fill the payload and the resp_code will be
+		RESP_SERVER_HAS_NO_CHANNELS or RESP_CANNOT_FIND_CHANNEL. Otherwise the server will send LIST_USERS messages until all usernames
+		have been sent to the requesting client. During the transaction the response code is set to
+		RESP_LIST_USERS_IN_PROGRESS. When all of the usernames have been sent the server will then send
+		one additional LIST_USERS message with the response set to RESP_LIST_USERS_DONE.
 	      </t>
 	    </list>
 	  </t>
@@ -276,16 +296,27 @@
       <section anchor="Response-Codes"  title="Response Codes">
         <figure>
           <artwork>
-	       RESP_INVALID			0
-	       RESP_SUCCESS			BIT(0)
-	       RESP_INVALID_LOGIN		BIT(1)
-	       RESP_INVALID_CHANNEL_NAME	BIT(2)
-	       RESP_NOT_IN_CHANNEL		BIT(3)
-	       RESP_ALREADY_IN_CHANNEL		BIT(4)
-	       RESP_SERVER_HAS_NO_CHANNELS	BIT(5)
-	       RESP_CANNOT_GET_USERS		BIT(6)
+			RESP_INVALID			0
+			RESP_SUCCESS			BIT(0)
+			RESP_INVALID_LOGIN		BIT(1)
+			RESP_INVALID_CHANNEL_NAME	BIT(2)
+			RESP_NOT_IN_CHANNEL		BIT(3)
+			RESP_ALREADY_IN_CHANNEL		BIT(4)
+			RESP_SERVER_HAS_NO_CHANNELS	BIT(5)
+			RESP_CANNOT_GET_USERS		BIT(6)
+			RESP_RECV_MSG_FAILED		BIT(7)
+			RESP_MEMORY_ALLOC		BIT(8)
+			RESP_CANNOT_ADD_CHANNEL		BIT(9)
+			RESP_CANNOT_ADD_USER_TO_CHANNEL	BIT(10)
+			RESP_DONE_SENDING_CHANNELS	BIT(11)
+			RESP_LIST_CHANNELS_IN_PROGRESS	BIT(12)
+			RESP_CANNOT_FIND_CHANNEL	BIT(13)
+			RESP_CANNOT_LIST_CHANNELS	BIT(14)
+			RESP_LIST_USERS_IN_PROGRESS	BIT(15)
+			RESP_DONE_SENDING_USERS		BIT(16)
+			RESP_CANNOT_LIST_USERS		BIT(17)
 
-	       Response Code - 4 bytes
+	        Response Code - 4 bytes
           </artwork>
         </figure>
 
@@ -325,6 +356,53 @@
 		  RESP_CANNOT_GET_USERS - The server sets this when the client tries to LIST_USERS
 		  in a channel, but is not currently part of this channel.
 	      </t>
+		  <t>
+		  RESP_RECV_MSG_FAILED - The server sets this when it was not able to receive
+		  and handle the message from the client.
+		  </t>
+		  <t>
+		  RESP_MEMORY_ALLOC - The server sets this when it was not able to allocate
+		  memory during message handling or responding to the client.
+		  </t>
+		  <t>
+		  RESP_CANNOT_ADD_CHANNEL - The server sets this when it was not able to
+		  add a new channel.
+		  </t>
+		  <t>
+				  RESP_CANNOT_ADD_USER_TO_CHANNEL - The server sets this when it was not
+				  able to add the user to the channel specified.
+		  </t>
+		  <t>
+				  RESP_DONE_SENDING_CHANNELS - The server sets this after it has completed
+				  sending all of the channels on the server. This signals that there are
+				  no new channels to be sent to the requesting client.
+		  </t>
+		  <t>
+				  RESP_LIST_CHANNELS_IN_PROGRESS - The server sets this during a LIST_CHANNELS
+				  message for each channel that it sends to the requesting client.
+		  </t>
+		  <t>
+				  RESP_CANNOT_FIND_CHANNEL - The server sets this when the channel sent in the
+				  request message by a client could not be found.
+		  </t>
+		  <t>
+				  RESP_CANNOT_LIST_CHANNELS - The server sets this when it fails during any LIST_CHANNELS
+				  message handling.
+		  </t>
+		  <t>
+				  RESP_LIST_USERS_IN_PROGRESS - The server sets this during a LIST_USERS message for each user
+				  that it sends to the requesting client based on the specified channel.
+		  </t>
+		  <t>
+				  RESP_DONE_SENDING_USERS - The server sets this after it has completed sending all of the
+				  users on the specified channel to the client.
+		  </t>
+		  <t>
+				  RESP_CANNOT_LIST_USERS - The server sets this when it fails during any LIST_USERS
+				  message handling.
+		  </t>
+
+
             </list>
           </t>
         </section>
