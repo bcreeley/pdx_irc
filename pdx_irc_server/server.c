@@ -289,6 +289,48 @@ static uint32_t handle_list_channels_msg(int srcfd, struct message *recv_msg)
 	return RESP_DONE_SENDING_CHANNELS;
 }
 
+static uint32_t handle_list_users_msg(int srcfd, struct message *recv_msg)
+{
+	struct message *send_msg;
+	struct list_node *tmp;
+	struct channel *c;
+
+	if (!recv_msg)
+		return RESP_CANNOT_LIST_USERS;
+
+	c = get_channel(recv_msg->list_users.channel_name);
+	if (!c)
+		return RESP_CANNOT_FIND_CHANNEL;
+
+	send_msg = (struct message *)calloc(1, sizeof(*send_msg));
+	if (!send_msg)
+		return RESP_MEMORY_ALLOC;
+
+	for (tmp = c->user_list_head; tmp != NULL; tmp = tmp->next) {
+		struct user *u = tmp->data;
+		int bytes;
+
+		strncpy(send_msg->list_users.src_user,
+			recv_msg->list_users.src_user, USER_NAME_MAX_LEN);
+		strncpy(send_msg->list_users.username, u->name,
+			USER_NAME_MAX_LEN);
+		send_msg->list_users.list_key = recv_msg->list_users.list_key;
+		printf("list users: user %s u->name %s\n", send_msg->list_channels.channel_name, c->name);
+		send_msg->type = recv_msg->type;
+		send_msg->response = RESP_LIST_USERS_IN_PROGRESS;
+
+		bytes = send(srcfd, send_msg, MSG_SIZE, 0);
+		if (bytes != MSG_SIZE) {
+			perror("send");
+			break;
+		}
+	}
+
+	free(send_msg);
+
+	return RESP_DONE_SENDING_USERS;
+}
+
 static void handle_recv_msg(int epollfd, int srcfd)
 {
 	struct message *recv_msg, *send_msg;
@@ -327,6 +369,10 @@ static void handle_recv_msg(int epollfd, int srcfd)
 		case LIST_CHANNELS:
 			send_msg->response = handle_list_channels_msg(srcfd,
 								      recv_msg);
+			break;
+		case LIST_USERS:
+			send_msg->response = handle_list_users_msg(srcfd,
+								   recv_msg);
 			break;
 		default:
 			/* Invalid or unimplemented message types */

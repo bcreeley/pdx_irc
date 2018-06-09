@@ -69,6 +69,9 @@ struct message {
 #define RESP_LIST_CHANNELS_IN_PROGRESS	BIT(12)
 #define RESP_CANNOT_FIND_CHANNEL	BIT(13)
 #define RESP_CANNOT_LIST_CHANNELS	BIT(14)
+#define RESP_LIST_USERS_IN_PROGRESS	BIT(15)
+#define RESP_DONE_SENDING_USERS		BIT(16)
+#define RESP_CANNOT_LIST_USERS		BIT(17)
 /* BIT(31) is the largest define with resposne being a 32-bit value */
 	uint32_t response;
 	union {
@@ -100,6 +103,12 @@ struct message {
 			char src_user[USER_NAME_MAX_LEN];
 			char channel_name[CHANNEL_NAME_MAX_LEN];
 		} list_channels;
+		struct {
+			uint8_t list_key;
+			char src_user[USER_NAME_MAX_LEN];
+			char channel_name[CHANNEL_NAME_MAX_LEN];
+			char username[USER_NAME_MAX_LEN];
+		} list_users;
 	};
 };
 #define MSG_SIZE (sizeof(struct message))

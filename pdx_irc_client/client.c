@@ -21,6 +21,10 @@
 static struct list_node *channel_list_head = NULL;
 static bool list_channels_active = false;
 
+/* User can only request for user list once before this list is deleted */
+static struct list_node *user_list_head = NULL;
+static bool list_users_active = false;
+
 #define MAX_EPOLL_EVENTS	10
 #define MAX_CMDLINE_INPUT	1024
 
@@ -65,6 +69,7 @@ static void print_usage()
 	       "\t#LEAVE /<username> /<channel_name>\n"
 	       "\t#CHAT  /<username> /<channel_name> /<chat_message>\n"
 	       "\t#LIST_CHANNELS /<username>\n"
+	       "\t#LIST_USERS /<username> /<channel_name>"
 	       "\nMaximum Lengths:\n"
 	       "\tusername: %d characters\n"
 	       "\tchannel_name: %d characters\n"
@@ -274,6 +279,55 @@ free_msg:
 	return NULL;
 }
 
+static struct message *list_users_input(char *input)
+{
+	struct message *msg;
+	char *prev, *next;
+	int len;
+
+	msg = calloc(1, sizeof(*msg));
+	if (!msg) {
+		perror("calloc");
+		return NULL;
+	}
+
+	/* Find the start of src_usr */
+	prev = strstr(input, "/");
+	if (!prev)
+		goto free_msg;
+	/* Don't want "/" as part of the username */
+	++prev;
+
+	next = strstr(prev, "/");
+	if (!next)
+		goto free_msg;
+
+	len = MIN(USER_NAME_MAX_LEN-1, next-prev);
+	strncpy(msg->list_users.src_user, prev, len);
+	msg->list_users.src_user[len] = '\0';
+
+	/* Don't want "/" as part of the chat text */
+	prev = ++next;
+	next = strstr(prev, "\n");
+	if (!next)
+		goto free_msg;
+
+	len = MIN(CHAT_MSG_MAX_LEN-1, next-prev);
+	strncpy(msg->list_users.channel_name, prev, len);
+	msg->list_users.channel_name[len] = '\0';
+
+	msg->type = LIST_USERS;
+
+	return msg;
+
+free_msg:
+	/* Allow another request to LIST_CHANNELS */
+	list_users_active = false;
+	printf("Error parsing %s\n", __FUNCTION__);
+	free(msg);
+	return NULL;
+}
+
 static struct message *parse_user_input()
 {
 	struct message *send_msg = NULL;
@@ -303,6 +357,8 @@ static struct message *parse_user_input()
 		send_msg = chat_input(input);
 	else if (strcasestr(input, "#LIST_CHANNELS") && !list_channels_active)
 		send_msg = list_channels_input(input);
+	else if (strcasestr(input, "#LIST_USERS") && !list_users_active)
+		send_msg = list_users_input(input);
 	else
 		printf("Unsupported message type");
 
@@ -356,6 +412,26 @@ static int handle_recv_msg(int recvfd)
 			       resp_type_to_str(recv_msg->response));
 		}
 
+
+		break;
+	case LIST_USERS:
+		if (recv_msg->response & RESP_LIST_USERS_IN_PROGRESS) {
+			ret = add_user(&user_list_head,
+				       recv_msg->list_users.username);
+			if (ret)
+				printf("Failed to add user!\n");
+
+		} else if (recv_msg->response & RESP_DONE_SENDING_USERS) {
+			printf("User List for channel: %s\n",
+			       recv_msg->list_users.channel_name);
+			print_user_list(user_list_head);
+			del_user_list(&user_list_head);
+			/* Allow another request to LIST_CHANNELS */
+			list_users_active = false;
+		} else {
+			printf("Invalid response %s from server\n",
+			       resp_type_to_str(recv_msg->response));
+		}
 
 		break;
 	default:

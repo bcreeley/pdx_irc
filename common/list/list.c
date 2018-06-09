@@ -62,6 +62,39 @@ struct channel *get_channel(struct list_node *head, char *channel_name)
 }
 #endif
 
+int add_user(struct list_node **head, char *username)
+{
+	struct list_node *add_node;
+	struct user *u;
+
+	if (!username)
+		return -1;
+
+	u = calloc(1, sizeof(*u));
+	if (!u) {
+		perror("calloc");
+		return -1;
+	}
+
+	add_node = calloc(1, sizeof(*add_node));
+	if (!add_node) {
+		perror("malloc");
+		free(u);
+		return -1;
+	}
+
+	strncpy(u->name, username, USER_NAME_MAX_LEN);
+	add_node->data = u;
+	if (add_list_node(head, add_node)) {
+		printf("Failed to add channel node\n");
+		free(u);
+		free(add_node);
+		return -1;
+	}
+
+	return 0;
+}
+
 bool is_equal_users(void *u1, void *u2)
 {
 	struct user *user1, *user2;
@@ -213,6 +246,21 @@ void print_channel(void *d)
 void print_channel_list(struct list_node *head)
 {
 	print_list(head, print_channel);
+}
+
+void print_user(void *d)
+{
+	struct user *u = d;
+
+	if (!u)
+		return;
+
+	printf("%s\n", u->name);
+}
+
+void print_user_list(struct list_node *head)
+{
+	print_list(head, print_user);
 }
 
 /**

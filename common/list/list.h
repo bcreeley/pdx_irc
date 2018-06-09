@@ -30,8 +30,9 @@ void del_list(struct list_node  **head, void (*del_data)(void **d));
 int add_channel(struct list_node **head, char *channel_name);
 bool is_equal_channels(void *c1, void *c2);
 
-
-
+void print_user(void *d);
+void print_user_list(struct list_node *head);
+int add_user(struct list_node **head, char *username);
 bool is_equal_users(void *u1, void *u2);
 
 struct list_node {
