@@ -51,17 +51,6 @@ bool is_equal_channels(void *c1, void *c2)
 	return false;
 }
 
-#if 0
-struct channel *get_channel(struct list_node *head, char *channel_name)
-{
-	struct channel c;
-
-	strncpy(c.name, channel_name, CHANNEL_NAME_MAX_LEN);
-
-	return get_list_node_data(head, &c, is_equal_channels);
-}
-#endif
-
 int add_user(struct list_node **head, char *username)
 {
 	struct list_node *add_node;
@@ -245,6 +234,7 @@ void print_channel(void *d)
 
 void print_channel_list(struct list_node *head)
 {
+	printf("Channel List:\n");
 	print_list(head, print_channel);
 }
 
@@ -258,8 +248,9 @@ void print_user(void *d)
 	printf("%s\n", u->name);
 }
 
-void print_user_list(struct list_node *head)
+void print_user_list(struct list_node *head, char *channel_name)
 {
+	printf("User List for channel: %s\n",channel_name);
 	print_list(head, print_user);
 }
 

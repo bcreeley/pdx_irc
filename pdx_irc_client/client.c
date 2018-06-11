@@ -77,6 +77,26 @@ static void print_usage()
 	       CHANNEL_NAME_MAX_LEN-1, CHAT_MSG_MAX_LEN-1);
 }
 
+static void remove_whitespace(char *str)
+{
+	int len;
+	int i;
+
+	if (!str)
+		return;
+
+	len = strlen(str);
+	for (i = 0; i < len; ++i) {
+		if (str[i] == ' ') {
+			int j;
+
+			for (j = i; j < len; ++j)
+				str[j] = str[j+1];
+
+			--len;
+		}
+	}
+}
 
 static struct message *join_input(char *input)
 {
@@ -105,6 +125,7 @@ static struct message *join_input(char *input)
 	len = MIN(USER_NAME_MAX_LEN-1, next-prev);
 	strncpy(msg->join.src_user, prev, len);
 	msg->join.src_user[len] = '\0';
+	remove_whitespace(msg->join.src_user);
 
 	/* Don't want "/" as part of the channel_name */
 	prev = ++next;
@@ -116,10 +137,9 @@ static struct message *join_input(char *input)
 	len = MIN(CHANNEL_NAME_MAX_LEN-1, next-prev);
 	strncpy(msg->join.channel_name, prev, len);
 	msg->join.channel_name[len] = '\0';
+	remove_whitespace(msg->join.channel_name);
 
 	msg->type = JOIN;
-
-	printf("src_user: %s channel_name: %s\n", msg->join.src_user, msg->join.channel_name);
 
 	return msg;
 
@@ -156,6 +176,7 @@ static struct message *leave_input(char *input)
 	len = MIN(USER_NAME_MAX_LEN-1, next-prev);
 	strncpy(msg->leave.src_user, prev, len);
 	msg->leave.src_user[len] = '\0';
+	remove_whitespace(msg->leave.src_user);
 
 	/* Don't want "/" as part of the channel_name */
 	prev = ++next;
@@ -167,9 +188,9 @@ static struct message *leave_input(char *input)
 	len = MIN(CHANNEL_NAME_MAX_LEN-1, next-prev);
 	strncpy(msg->leave.channel_name, prev, len);
 	msg->leave.channel_name[len] = '\0';
+	remove_whitespace(msg->leave.channel_name);
 
 	msg->type = LEAVE;
-	printf("src_user: %s channel_name: %s\n", msg->leave.src_user, msg->leave.channel_name);
 
 	return msg;
 
@@ -206,6 +227,7 @@ static struct message *chat_input(char *input)
 	len = MIN(USER_NAME_MAX_LEN-1, next-prev);
 	strncpy(msg->chat.src_user, prev, len);
 	msg->chat.src_user[len] = '\0';
+	remove_whitespace(msg->chat.src_user);
 
 	/* Don't want "/" as part of the channel_name */
 	prev = ++next;
@@ -217,6 +239,7 @@ static struct message *chat_input(char *input)
 	len = MIN(CHANNEL_NAME_MAX_LEN-1, next-prev);
 	strncpy(msg->chat.channel_name, prev, len);
 	msg->chat.channel_name[len] = '\0';
+	remove_whitespace(msg->chat.channel_name);
 
 	/* Don't want "/" as part of the chat text */
 	prev = ++next;
@@ -229,8 +252,6 @@ static struct message *chat_input(char *input)
 	msg->chat.text[len] = '\0';
 
 	msg->type = CHAT;
-	printf("src_user: %s channel_name: %s chat_msg: (%s)\n", msg->chat.src_user,
-	       msg->chat.channel_name, msg->chat.text);
 
 	return msg;
 
@@ -380,7 +401,7 @@ static int handle_recv_msg(int recvfd)
 	}
 
 	bytes = recv(recvfd, recv_msg, MSG_SIZE, MSG_WAITALL);
-	if (bytes != MSG_SIZE) {
+	if (bytes < 0) {
 		perror("recv");
 		ret = -1;
 		goto out;
@@ -395,14 +416,12 @@ static int handle_recv_msg(int recvfd)
 		break;
 	case LIST_CHANNELS:
 		if (recv_msg->response & RESP_LIST_CHANNELS_IN_PROGRESS) {
-			printf("adding channel %s to list\n", recv_msg->list_channels.channel_name);
 			ret = add_channel(&channel_list_head,
 					  recv_msg->list_channels.channel_name);
 			if (ret)
 				printf("Failed to add channel!\n");
 
 		} else if (recv_msg->response & RESP_DONE_SENDING_CHANNELS) {
-			printf("Channel List:\n");
 			print_channel_list(channel_list_head);
 			del_channel_list(&channel_list_head);
 			/* Allow another request to LIST_CHANNELS */
@@ -422,9 +441,7 @@ static int handle_recv_msg(int recvfd)
 				printf("Failed to add user!\n");
 
 		} else if (recv_msg->response & RESP_DONE_SENDING_USERS) {
-			printf("User List for channel: %s\n",
-			       recv_msg->list_users.channel_name);
-			print_user_list(user_list_head);
+			print_user_list(user_list_head, recv_msg->list_users.channel_name);
 			del_user_list(&user_list_head);
 			/* Allow another request to LIST_CHANNELS */
 			list_users_active = false;
@@ -438,7 +455,6 @@ static int handle_recv_msg(int recvfd)
 		printf("Unhandled receive message %s with response %s\n",
 		       msg_type_to_str(recv_msg->type),
 		       resp_type_to_str(recv_msg->response));
-		ret = -1;
 		break;
 	}
 
@@ -510,7 +526,7 @@ int main(int argc, char *argv[])
 				/* Received CHAT or server response message */
 				} else if (eventfd == sockfd) {
 					if (handle_recv_msg(sockfd))
-						printf("Failed to handle_recv_msg");
+						printf("Failed to handle_recv_msg\n");
 				}
 
 				break;

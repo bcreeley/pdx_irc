@@ -27,7 +27,6 @@ static struct channel *get_channel(char *channel_name)
 	struct channel c;
 
 	strncpy(c.name, channel_name, CHANNEL_NAME_MAX_LEN);
-	printf("c.name %s channel_name %s\n", c.name, channel_name);
 
 	return get_list_node_data(channel_list_head, &c, is_equal_channels);
 }
@@ -88,19 +87,23 @@ static uint32_t handle_join_msg(int srcfd, struct message *msg)
 	struct channel *channel;
 	struct user *user;
 
-	printf("Received JOIN request for channel %s from %s\n",
-	       msg->join.channel_name, msg->join.src_user);
-
 	channel = get_channel(msg->join.channel_name);
 	/* Add channel if it doesn't exist already and get the refernce to the
 	 * channel
 	 * TODO: make add_channel return a pointer to the added channel!!! */
 	if (!channel) {
-		if (add_channel(&channel_list_head, msg->join.channel_name))
+		if (add_channel(&channel_list_head, msg->join.channel_name)) {
+			printf("[%s:%d] cannot add channel (%s)\n", __func__, __LINE__,
+			       msg->join.channel_name);
 			return RESP_CANNOT_ADD_CHANNEL;
+		}
+
 		channel = get_channel(msg->join.channel_name);
-		if (!channel)
+		if (!channel) {
+			printf("[%s:%d] cannot find channel (%s)\n", __func__, __LINE__,
+			       msg->join.channel_name);
 			return RESP_CANNOT_FIND_CHANNEL;
+		}
 	}
 
 	user = calloc(1, sizeof(*user));
@@ -112,8 +115,6 @@ static uint32_t handle_join_msg(int srcfd, struct message *msg)
 	strncpy(user->name, msg->join.src_user, USER_NAME_MAX_LEN);
 	user->fd = srcfd;
 	if (is_user_in_channel(channel, user)) {
-		printf("User %s already in channel %s\n", user->name,
-		       channel->name);
 		free(user);
 		return RESP_ALREADY_IN_CHANNEL;
 	}
@@ -131,10 +132,9 @@ static uint32_t handle_join_msg(int srcfd, struct message *msg)
 		free(user);
 		free(add_node);
 		return RESP_CANNOT_ADD_USER_TO_CHANNEL;
-	} else {
-		printf("successfully added user %s with fd %d to channel %s\n",
-		      user->name, user->fd, msg->join.channel_name);
 	}
+
+	print_user_list(channel->user_list_head, channel->name);
 
 	return RESP_SUCCESS;
 }
@@ -146,20 +146,20 @@ static uint32_t handle_chat_msg(int srcfd, struct message *msg)
 	struct user user;
 	int bytes;
 
-	/* Print where message came from for testing */
-	printf("(%s) %s: %s\n", msg->chat.channel_name, msg->chat.src_user,
-	       msg->chat.text);
-
 	/* Setup src_user data to avoid echoing message back to sender */
 	strncpy(user.name, msg->chat.src_user, USER_NAME_MAX_LEN);
 	user.fd = srcfd;
 	/* Make sure this message is directed towards a real channel */
 	channel = get_channel(msg->chat.channel_name);
-	if (!channel)
+	if (!channel) {
+		printf("[%s:%d] cannot find channel (%s)\n", __func__, __LINE__, msg->chat.channel_name);
 		return RESP_INVALID_CHANNEL_NAME;
+	}
 
-	if (!is_user_in_channel(channel, &user))
+	if (!is_user_in_channel(channel, &user)) {
+		printf("[%s:%d] user %s not in channel %s\n", __func__, __LINE__, user.name, channel->name);
 		return RESP_NOT_IN_CHANNEL;
+	}
 
 	/* Send chat message to all users in the channel */
 	for (tmp = channel->user_list_head; tmp != NULL; tmp = tmp->next) {
@@ -272,7 +272,6 @@ static uint32_t handle_list_channels_msg(int srcfd, struct message *recv_msg)
 			recv_msg->list_channels.src_user, USER_NAME_MAX_LEN);
 		strncpy(send_msg->list_channels.channel_name, c->name,
 			CHANNEL_NAME_MAX_LEN);
-		printf("list channels: channel %s c->name %s\n", send_msg->list_channels.channel_name, c->name);
 		send_msg->list_channels.list_key = recv_msg->list_channels.list_key;
 		send_msg->type = recv_msg->type;
 		send_msg->response = RESP_LIST_CHANNELS_IN_PROGRESS;
@@ -315,7 +314,6 @@ static uint32_t handle_list_users_msg(int srcfd, struct message *recv_msg)
 		strncpy(send_msg->list_users.username, u->name,
 			USER_NAME_MAX_LEN);
 		send_msg->list_users.list_key = recv_msg->list_users.list_key;
-		printf("list users: user %s u->name %s\n", send_msg->list_channels.channel_name, c->name);
 		send_msg->type = recv_msg->type;
 		send_msg->response = RESP_LIST_USERS_IN_PROGRESS;
 
@@ -375,7 +373,6 @@ static void handle_recv_msg(int epollfd, int srcfd)
 								   recv_msg);
 			break;
 		default:
-			/* Invalid or unimplemented message types */
 			printf("Invalid/unimplemented message type %s\n",
 			       msg_type_to_str(recv_msg->type));
 			break;
@@ -407,9 +404,6 @@ int main(int argc, char *argv[])
 	if (add_epoll_member(epollfd, serverfd, EPOLLIN))
 		exit(EXIT_FAILURE);
 
-	printf("serverfd %d\n", serverfd);
-	printf("epollfd %d\n", epollfd);
-
 	while (1) {
 		int nfds, i;
 
@@ -423,7 +417,7 @@ int main(int argc, char *argv[])
 			uint32_t event_mask = events[i].events;
 			int eventfd = events[i].data.fd;
 
-			debug_print_epoll_event(eventfd, event_mask);
+			//debug_print_epoll_event(eventfd, event_mask);
 
 			switch (event_mask) {
 			case EPOLLIN:
@@ -433,20 +427,15 @@ int main(int argc, char *argv[])
 						printf("accept_new_client() failed!\n");
 						exit(EXIT_FAILURE);
 					}
-					printf("new client on fd %d\n", eventfd);
 				} else {
-					printf("new message from client on fd %d\n",
-					       eventfd);
-
 					handle_recv_msg(epollfd, eventfd);
 				}
+
 				break;
 
 			case EPOLL_CLIENT_DISCONNECT:
 				if (rm_epoll_member(epollfd, eventfd))
 					exit(EXIT_FAILURE);
-				printf("removing client fd %d\n",
-				       eventfd);
 				break;
 
 			case EPOLLERR:
