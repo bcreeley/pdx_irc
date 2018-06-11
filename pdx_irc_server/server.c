@@ -391,6 +391,24 @@ send_response:
 	free(send_msg);
 }
 
+static void rm_user_from_all_channels(int userfd)
+{
+	struct list_node *tmp;
+	struct user user;
+
+	user.fd = userfd;
+	for (tmp = channel_list_head; tmp != NULL; tmp = tmp->next) {
+		struct channel *c = tmp->data;
+		int ret;
+
+		ret = rm_user_from_channel(c, &user);
+		if (ret != RESP_SUCCESS && ret != RESP_NOT_IN_CHANNEL)
+			printf("[%s:%d] Error %d removing user from channel\n",
+			       __func__, __LINE__, ret);
+	}
+
+}
+
 int main(int argc, char *argv[])
 {
 #define EPOLL_CLIENT_DISCONNECT (EPOLLRDHUP | EPOLLIN)
@@ -436,6 +454,7 @@ int main(int argc, char *argv[])
 				break;
 
 			case EPOLL_CLIENT_DISCONNECT:
+				rm_user_from_all_channels(eventfd);
 				if (rm_epoll_member(epollfd, eventfd))
 					exit(EXIT_FAILURE);
 				break;
