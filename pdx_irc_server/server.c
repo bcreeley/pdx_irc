@@ -134,8 +134,6 @@ static uint32_t handle_join_msg(int srcfd, struct message *msg)
 		return RESP_CANNOT_ADD_USER_TO_CHANNEL;
 	}
 
-	print_user_list(channel->user_list_head, channel->name);
-
 	return RESP_SUCCESS;
 }
 
@@ -239,8 +237,12 @@ static void build_response_msg(struct message *send_msg, struct message *recv_ms
 	case LIST_CHANNELS:
 		strncpy(send_msg->list_channels.src_user, recv_msg->chat.src_user,
 			USER_NAME_MAX_LEN);
-		send_msg->list_channels.list_key =
-			recv_msg->list_channels.list_key;
+		send_msg->list_channels.list_key = recv_msg->list_channels.list_key;
+		break;
+	case LIST_USERS:
+		strncpy(send_msg->list_users.src_user, recv_msg->list_users.src_user,
+			USER_NAME_MAX_LEN);
+		send_msg->list_users.list_key = recv_msg->list_users.list_key;
 		break;
 	default:
 		printf("Invalid/unimplemented message type %s\n",

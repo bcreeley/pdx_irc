@@ -96,6 +96,8 @@ static void remove_whitespace(char *str)
 			--len;
 		}
 	}
+
+	str[len] = '\0';
 }
 
 static struct message *join_input(char *input)
@@ -452,9 +454,10 @@ static int handle_recv_msg(int recvfd)
 
 		break;
 	default:
-		printf("Unhandled receive message %s with response %s\n",
-		       msg_type_to_str(recv_msg->type),
-		       resp_type_to_str(recv_msg->response));
+		if (recv_msg->response != RESP_SUCCESS)
+			printf("Error receive message %s with response %s\n",
+			       msg_type_to_str(recv_msg->type),
+			       resp_type_to_str(recv_msg->response));
 		break;
 	}
 
