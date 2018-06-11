@@ -5,6 +5,7 @@
 
 #include "debug.h"
 #include "../protocol.h"
+#include <stdlib.h>
 
 struct resp_type_strings {
 	uint32_t type;
@@ -28,21 +29,21 @@ struct resp_type_strings resp_type_str_arr[] = {
 	{RESP_LIST_CHANNELS_IN_PROGRESS,	"RESP_LIST_CHANNELS_IN_PROGRESS"},
 	{RESP_CANNOT_FIND_CHANNEL,		"RESP_CANNOT_FIND_CHANNEL"},
 	{RESP_CANNOT_LIST_CHANNELS,		"RESP_CANNOT_LIST_CHANNELS"},
+	/* Last entry requires NULL string for looping purposes */
+	{0 , NULL},
 };
-
-#define RESP_MSG_ARR_SIZE sizeof(resp_type_str_arr)
-
 
 const char *resp_type_to_str(uint32_t resp_type)
 {
-	int i;
+	int i = 0;
 
-	for (i = 0; i < RESP_MSG_ARR_SIZE; ++i) {
+	while (resp_type_str_arr[i].string != NULL) {
 		if (resp_type == resp_type_str_arr[i].type)
 			return resp_type_str_arr[i].string;
+		++i;
 	}
 
-	return "Unknown response type";
+	return "RESP_UNKNOWN";
 }
 
 struct msg_type_strings {
@@ -59,19 +60,20 @@ static struct msg_type_strings msg_type_str_arr[] = {
 	{CHAT,			"MSG_TYPE_CHAT"},
 	{LIST_CHANNELS,		"MSG_TYPE_LIST_CHANNELS"},
 	{LIST_USERS,		"MSG_TYPE_LIST_USERS"},
+	/* Last entry requires NULL string for looping purposes */
+	{0 , NULL},
 };
-
-#define MSG_TYPE_ARR_SIZE sizeof(msg_type_str_arr)
 
 const char *msg_type_to_str(uint8_t msg_type)
 {
-	int i;
+	int i = 0;
 
-	for (i = 0; i < MSG_TYPE_ARR_SIZE; ++i) {
+	while (msg_type_str_arr[i].string != NULL) {
 		if (msg_type == msg_type_str_arr[i].type)
 			return msg_type_str_arr[i].string;
+		++i;
 	}
 
-	return "Uknown message type";
+	return "MSG_TYPE_UNKNOWN";
 }
 
