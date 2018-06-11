@@ -94,7 +94,7 @@ bool is_equal_users(void *u1, void *u2)
 	user1 = u1;
 	user2 = u2;
 
-	if (user1->fd == user2->fd && strcmp(user1->name, user2->name) == 0)
+	if (user1->fd == user2->fd)/* && strcmp(user1->name, user2->name) == 0)*/
 		return true;
 
 	return false;
